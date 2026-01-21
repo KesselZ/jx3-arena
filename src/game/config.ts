@@ -3,6 +3,9 @@
  * 所有的平衡性调整都应在此进行
  */
 export const GAME_CONFIG = {
+  // 开发调试相关
+  DEBUG: import.meta.env.DEV,
+
   // 战斗相关
   BATTLE: {
     WAVE_DURATION: 30,         // 每波时间 (秒)
@@ -31,25 +34,36 @@ export const GAME_CONFIG = {
   
   // 视觉/渲染相关
   VISUAL: {
-    PIXEL_UNIT: 0.05,          // 像素单位大小
+    PIXEL_UNIT: 0.05,          
     CAMERA_OFFSET: [0, 12, 12] as [number, number, number],
+    // 相机与动画参数
+    CAMERA_LERP: 0.1,
+    ZOOM_LERP: 0.1,
+    ZOOM_MIN: 5,
+    ZOOM_MAX: 25,
+    ZOOM_SENSITIVITY: 0.01,
+    // 角色动画参数
+    ANIM_BOUNCE_FREQ: 4,
+    ANIM_BOUNCE_AMP: 0.1,
+    ANIM_TILT_AMP: 0.05,
+    HIT_FLASH_DURATION: 0.1,
   },
   
   // 环境配置 (支持多场景切换)
   THEMES: {
     'grassland': {
-      groundColor: '#4a7c44',
-      gridColor: '#3d6638',
-      skyColor: '#87ceeb',
-      ambientIntensity: 0.8,
-      fog: { color: '#87ceeb', near: 10, far: 50 }
+      groundColor: '#1a2e1a', // 深墨绿色
+      gridColor: '#0d1a0d',
+      skyColor: '#050a0f',    // 深夜蓝
+      ambientIntensity: 0.1,  // 极低环境光，突出灯光
+      fog: { color: '#050a0f', near: 20, far: 60 } 
     },
     'desert': {
-      groundColor: '#c2b280',
-      gridColor: '#a8996d',
-      skyColor: '#ffdb58',
-      ambientIntensity: 0.6,
-      fog: { color: '#ffdb58', near: 10, far: 50 }
+      groundColor: '#2a2418', // 深褐色
+      gridColor: '#1a160e',
+      skyColor: '#0f0a05',
+      ambientIntensity: 0.1,
+      fog: { color: '#0f0a05', near: 15, far: 45 }
     }
   },
   

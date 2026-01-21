@@ -18,21 +18,30 @@ export function Stage() {
       <ambientLight intensity={theme.ambientIntensity} />
       <directionalLight 
         position={[10, 20, 10]} 
-        intensity={1.2} 
+        intensity={0.2} 
         castShadow 
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[2048, 2048]} // 提高阴影分辨率
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
       />
-      
+
       {/* 4. 雾气：远端自然淡出 */}
       <fog attach="fog" args={[theme.fog.color, theme.fog.near, theme.fog.far]} />
 
-      {/* 5. 地面 */}
+      {/* 5. 地面：接收投影 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[100, 100]} />
         <meshStandardMaterial color={theme.groundColor} roughness={1} />
       </mesh>
 
-      {/* 6. 软阴影 */}
+      {/* 6. 调试用灯光：在场景中放置几个彩色点光源，测试 HD-2D 体积感 */}
+      <pointLight position={[5, 2, 5]} intensity={50} color="#ffaa00" castShadow />
+      <pointLight position={[-5, 2, -5]} intensity={50} color="#00aaff" castShadow />
+      <pointLight position={[0, 5, 0]} intensity={30} color="#ffffff" />
+      
+      {/* 7. 软阴影 */}
       <ContactShadows 
         opacity={0.4} 
         scale={40} 

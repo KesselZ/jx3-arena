@@ -48,17 +48,17 @@ export const UNITS = {
 } as const;
 
 // --- 2. 核心逻辑 (The Engine) ---
-const textureCache: Record<string, THREE.Texture> = {};
+const textureCache: Record<string, { texture: THREE.Texture, width: number, height: number }> = {};
 
 export const Assets = {
   /**
    * 自动处理精灵图：裁剪留白、对齐锚点、生成 Three.js 纹理
    */
-  getTexture: async (unitId: keyof typeof UNITS): Promise<THREE.Texture> => {
+  getTexture: async (unitId: keyof typeof UNITS): Promise<{ texture: THREE.Texture, width: number, height: number }> => {
     if (textureCache[unitId]) return textureCache[unitId];
 
     const unit = UNITS[unitId];
-    const sheet = SPRITE_SHEETS[unit.sheet];
+    const sheet = SPRITE_SHEETS[unit.sheet as keyof typeof SPRITE_SHEETS];
 
     return new Promise((resolve) => {
       const img = new Image();
@@ -76,7 +76,9 @@ export const Assets = {
         if ((unit.anchor as string) === 'none') {
           const tex = new THREE.CanvasTexture(canvas);
           tex.minFilter = tex.magFilter = THREE.NearestFilter;
-          resolve(textureCache[unitId] = tex);
+          const result = { texture: tex, width: cw, height: ch };
+          textureCache[unitId] = result;
+          resolve(result);
           return;
         }
 
@@ -99,7 +101,10 @@ export const Assets = {
 
         const tex = new THREE.CanvasTexture(finalCanvas);
         tex.minFilter = tex.magFilter = THREE.NearestFilter;
-        resolve(textureCache[unitId] = tex);
+        
+        const result = { texture: tex, width: w, height: h };
+        textureCache[unitId] = result;
+        resolve(result);
       };
     });
   },

@@ -19,6 +19,11 @@ interface GameState {
   setSelectedCharacter: (unitId: keyof typeof UNITS) => void
   nextWave: () => void
   addGold: (amount: number) => void
+
+  // 性能监测数据
+  fps: number
+  frameTime: number
+  updateStats: (fps: number, frameTime: number) => void
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -28,9 +33,13 @@ export const useGameStore = create<GameState>((set) => ({
   gold: 0,
   selectedCharacter: null,
   
+  fps: 0,
+  frameTime: 0,
+
   setPhase: (phase) => set({ phase }),
   setTheme: (theme) => set({ theme }),
   setSelectedCharacter: (unitId) => set({ selectedCharacter: unitId }),
   nextWave: () => set((state) => ({ wave: state.wave + 1 })),
   addGold: (amount) => set((state) => ({ gold: state.gold + amount })),
+  updateStats: (fps, frameTime) => set({ fps, frameTime }),
 }))

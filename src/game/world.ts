@@ -5,7 +5,11 @@ import { UNITS } from '../assets/assets'
 
 export type Position = { x: number; y: number; z: number }
 export type Velocity = { x: number; y: number; z: number }
-export type Health = { current: number; max: number }
+export type Health = { 
+  current: number; 
+  max: number;
+  lastHitTime?: number; // 记录上一次受击的时间戳
+}
 export type Attack = { power: number; speed: number; range: number; type: 'melee' | 'ranged' }
 
 export type Entity = {
