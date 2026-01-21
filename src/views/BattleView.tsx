@@ -63,28 +63,9 @@ function EntityView({ entity }: { entity: Entity }) {
   )
 }
 
-// 实体管理器，负责渲染世界中的所有实体并运行系统逻辑
+// 实体管理器，负责渲染世界中的所有实体
 function Entities() {
   const entities = useEntities(world);
-  const keys = useKeyboard()
-
-  useFrame((_, delta) => {
-    // 1. 处理玩家输入（仅更新速度）
-    const player = world.entities.find(e => e.id === 'player-main')
-    if (player) {
-      const moveSpeed = GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED
-      player.velocity.x = 0; player.velocity.z = 0;
-
-      if (keys.current['KeyW']) player.velocity.z -= moveSpeed
-      if (keys.current['KeyS']) player.velocity.z += moveSpeed
-      if (keys.current['KeyA']) player.velocity.x -= moveSpeed
-      if (keys.current['KeyD']) player.velocity.x += moveSpeed
-    }
-
-    // 2. 运行系统逻辑
-    aiSystem(delta)
-    movementSystem(delta)
-  })
 
   return (
     <>
@@ -97,26 +78,48 @@ function Entities() {
 
 function BattleScene() {
   const selectedCharacter = useGameStore((state) => state.selectedCharacter)
+  const currentWave = useGameStore((state) => state.wave)
+  const elapsedTime = useRef(0)
 
-  useFrame((_, delta) => {
-    // 统一在这里运行所有 ECS 系统，保证逻辑每帧只运行一次
+  useFrame((state, delta) => {
+    elapsedTime.current += delta
+    
+    // 1. 刷怪系统
+    spawnSystem(delta, elapsedTime.current, currentWave)
+
+    // 2. AI 系统
+    aiSystem(delta)
+
+    // 3. 位移物理系统
     movementSystem(delta)
   })
 
   useEffect(() => {
     if (!selectedCharacter) return
 
+    // 每一波开始重置刷怪器
+    resetSpawner()
+    elapsedTime.current = 0
+
     // 1. 生成选择的主角
     createPlayer(selectedCharacter, 0, 0)
     
-    // 2. 生成友军
+    // 2. 生成一个初始友军
     createNPC('ally_chunyang', 'ally', -2, -2)
     
-    // 3. 生成敌人
-    createNPC('bandit', 'enemy', 5, 0)
+    // 3. 初始随机生成几个敌人，增加开场感
+    const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
+    for(let i=0; i<GAME_CONFIG.BATTLE.INITIAL_ENEMIES; i++) {
+      const spawnPos = {
+        x: (Math.random() - 0.5) * GAME_CONFIG.BATTLE.SCREEN_BOUNDS.x * 2,
+        z: (Math.random() - 0.5) * GAME_CONFIG.BATTLE.SCREEN_BOUNDS.z * 2
+      }
+      const randomUnitId = waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)]
+      createNPC(randomUnitId, 'enemy', spawnPos.x, spawnPos.z)
+    }
 
     return () => world.clear()
-  }, [selectedCharacter])
+  }, [selectedCharacter, currentWave])
 
   return (
     <>
@@ -161,4 +164,10 @@ export const BattleView = () => {
 
         <div className="flex justify-center mb-10">
           <div className="pixel-panel !py-2 !px-6 bg-jx3-paper border-2 animate-pulse text-sm font-bold">
-            HD-2D 模式：精灵图始终面对摄�
+            HD-2D 模式：精灵图始终面对摄像机
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
