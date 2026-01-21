@@ -10,63 +10,63 @@ import { useKeyboard } from '../hooks/useKeyboard'
 import { movementSystem } from '../systems/movementSystem'
 import { aiSystem } from '../systems/aiSystem'
 import { spawnSystem, resetSpawner } from '../systems/spawnSystem'
+import { inputSystem } from '../systems/inputSystem'
 import { GAME_CONFIG } from '../game/config'
 import { PixelSprite } from '../components/Sprites'
+import { UNITS } from '../assets/assets'
 import { Stage } from '../components/Stage'
 import * as THREE from 'three'
 
-// 单个实体的表现层组件
+/**
+ * 表现层：EntityView
+ * 职责：仅负责将实体数据同步到 3D 渲染，不含任何逻辑
+ */
 function EntityView({ entity }: { entity: Entity }) {
   const groupRef = useRef<THREE.Group>(null)
-  const isPlayer = entity.type === 'player'
-  const keys = useKeyboard()
+  
+  // 从 UNITS 注册表中获取该角色的预设缩放，默认为 1.0
+  const unitDef = UNITS[entity.unitId as keyof typeof UNITS]
+  const baseScale = (unitDef as any).scale || 1.0
 
-  useFrame((state, delta) => {
+  useFrame(() => {
     if (!groupRef.current) return
-
-    // 如果是玩家，处理输入（只负责改速度，不负责位移逻辑）
-    if (isPlayer) {
-      const moveSpeed = GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED
-      const vel = entity.velocity
-      vel.x = 0; vel.z = 0;
-
-      if (keys.current['KeyW']) vel.z -= moveSpeed
-      if (keys.current['KeyS']) vel.z += moveSpeed
-      if (keys.current['KeyA']) vel.x -= moveSpeed
-      if (keys.current['KeyD']) vel.x += moveSpeed
-    }
-
-    // 同步位置
+    // 同步物理位置到渲染位置
     groupRef.current.position.set(entity.position.x, entity.position.y, entity.position.z)
   })
 
   // 左右翻转逻辑
-  const flipX = entity.velocity.x !== 0 ? entity.velocity.x < 0 : false
+  const defaultFacing = (unitDef as any).facing || 'right'
+  let flipX = false
+  if (entity.velocity.x !== 0) {
+    // 如果原始图片朝右，往左走(x<0)就翻转；如果原始图片朝左，往右走(x>0)就翻转
+    flipX = defaultFacing === 'right' ? entity.velocity.x < 0 : entity.velocity.x > 0
+  }
 
   return (
     <group ref={groupRef}>
-      {/* Billboard 确保精灵图始终面对摄像机，实现 HD-2D 效果 */}
       <Billboard follow={true}>
         <PixelSprite 
           unitId={entity.unitId} 
-          scale={isPlayer ? 1.5 : 1.2} 
+          scale={baseScale} 
           flipX={flipX}
         />
       </Billboard>
       
-      {/* 角色脚底的装饰阴影 */}
+      {/* 角色脚底阴影：大小也随角色缩放微调 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[0.3, 32]} />
+        <circleGeometry args={[0.3 * baseScale, 32]} />
         <meshBasicMaterial color="black" transparent opacity={0.3} />
       </mesh>
     </group>
   )
 }
 
-// 实体管理器，负责渲染世界中的所有实体
+/**
+ * 容器层：Entities
+ * 职责：负责渲染世界中的所有实体实例
+ */
 function Entities() {
   const entities = useEntities(world);
-
   return (
     <>
       {[...entities].map((entity) => (
@@ -76,38 +76,47 @@ function Entities() {
   )
 }
 
+/**
+ * 逻辑编排层：BattleScene
+ * 职责：搭建 3D 场景并运行 ECS 所有系统
+ */
 function BattleScene() {
   const selectedCharacter = useGameStore((state) => state.selectedCharacter)
   const currentWave = useGameStore((state) => state.wave)
   const elapsedTime = useRef(0)
+  const keys = useKeyboard()
 
+  // ECS 系统循环：逻辑与渲染分离
   useFrame((state, delta) => {
     elapsedTime.current += delta
     
-    // 1. 刷怪系统
+    // 1. 输入处理：按键 -> 修改玩家速度
+    inputSystem(keys.current)
+
+    // 2. 刷怪逻辑：时间 -> 生成新实体
     spawnSystem(delta, elapsedTime.current, currentWave)
 
-    // 2. AI 系统
+    // 3. AI 逻辑：决策 -> 修改 NPC 速度
     aiSystem(delta)
 
-    // 3. 位移物理系统
+    // 4. 位移物理：速度 -> 修改实体位置
     movementSystem(delta)
   })
 
   useEffect(() => {
     if (!selectedCharacter) return
 
-    // 每一波开始重置刷怪器
+    // 波次初始化
     resetSpawner()
     elapsedTime.current = 0
 
-    // 1. 生成选择的主角
+    // 1. 生成主角
     createPlayer(selectedCharacter, 0, 0)
     
     // 2. 生成一个初始友军
     createNPC('ally_chunyang', 'ally', -2, -2)
     
-    // 3. 初始随机生成几个敌人，增加开场感
+    // 3. 初始随机敌人
     const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
     for(let i=0; i<GAME_CONFIG.BATTLE.INITIAL_ENEMIES; i++) {
       const spawnPos = {
@@ -132,12 +141,17 @@ function BattleScene() {
   )
 }
 
+/**
+ * UI 视图层：BattleView
+ * 职责：布局 Canvas 和覆盖的 UI 信息
+ */
 export const BattleView = () => {
   const setPhase = useGameStore((state) => state.setPhase)
   const wave = useGameStore((state) => state.wave)
 
   return (
     <div className="w-full h-full relative">
+      {/* 3.D 渲染层 */}
       <div className="absolute inset-0 z-0">
         <Canvas shadows>
           <Suspense fallback={null}>
@@ -146,6 +160,7 @@ export const BattleView = () => {
         </Canvas>
       </div>
 
+      {/* 2D UI 覆盖层 */}
       <div className="absolute inset-0 z-10 pointer-events-none p-8 flex flex-col justify-between">
         <div className="flex justify-between items-start pointer-events-auto">
           <div className="pixel-panel border-jx3-gold !bg-jx3-ink !text-jx3-gold">
@@ -164,7 +179,7 @@ export const BattleView = () => {
 
         <div className="flex justify-center mb-10">
           <div className="pixel-panel !py-2 !px-6 bg-jx3-paper border-2 animate-pulse text-sm font-bold">
-            HD-2D 模式：精灵图始终面对摄像机
+            HD-2D 模式：精英架构，逻辑与表现彻底解耦
           </div>
         </div>
       </div>

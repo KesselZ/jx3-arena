@@ -13,32 +13,37 @@ export const UNITS = {
   // 玩家角色
   'player_wanhua': { 
     sheet: 'wanhua', row: 2, col: 0, name: '万花师兄', 
-    facing: 'right', anchor: 'bottom',
-    isPlayable: true, description: '妙手空空，笔墨定乾坤。'
+    anchor: 'bottom',
+    isPlayable: true, description: '妙手空空，笔墨定乾坤。',
+    scale: 1.5
   },
   'player_tiance': { 
     sheet: 'tiance4', row: 1, col: 0, name: '天策师兄', 
-    facing: 'right', anchor: 'bottom',
-    isPlayable: true, description: '长枪所向，东都之狼。'
+    anchor: 'bottom',
+    isPlayable: true, description: '长枪所向，东都之狼。',
+    scale: 1.6
   },
   
   // 友军
   'ally_chunyang': { 
     sheet: 'chunyang', row: 0, col: 0, name: '纯阳弟子', 
-    facing: 'right', anchor: 'bottom',
-    isPlayable: false
+    anchor: 'bottom',
+    isPlayable: false,
+    scale: 1.2
   },
 
   // 敌人
   'bandit': { 
     sheet: 'enemy', row: 1, col: 0, name: '山贼', 
-    facing: 'left', anchor: 'bottom',
-    isPlayable: false
+    facing: 'left', anchor: 'bottom', // 只有面朝左的需要特殊声明
+    isPlayable: false,
+    scale: 1.2
   },
   'archer': { 
     sheet: 'enemy', row: 1, col: 1, name: '山贼射手', 
-    facing: 'right', anchor: 'bottom',
-    isPlayable: false
+    anchor: 'bottom',
+    isPlayable: false,
+    scale: 1.1
   },
 } as const;
 
