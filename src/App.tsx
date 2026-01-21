@@ -1,6 +1,6 @@
 import { useGameStore } from './store/useGameStore'
 import { MainMenuView } from './views/MainMenuView'
-import { BattleView } from './views/BattleView'
+import { BattlePage } from './views/BattlePage'
 import { CharacterSelectView } from './views/CharacterSelectView'
 
 function App() {
@@ -10,7 +10,7 @@ function App() {
     <div className="w-full h-full bg-black">
       {phase === 'LOBBY' && <MainMenuView />}
       {phase === 'CHARACTER_SELECT' && <CharacterSelectView />}
-      {phase === 'BATTLE' && <BattleView />}
+      {phase === 'BATTLE' && <BattlePage />}
       
       {/* 预留其他场景 */}
       {phase === 'SHOP' && (

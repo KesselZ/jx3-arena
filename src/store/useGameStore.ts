@@ -23,7 +23,21 @@ interface GameState {
   // 性能监测数据
   fps: number
   frameTime: number
-  updateStats: (fps: number, frameTime: number) => void
+  drawCalls: number
+  triangles: number
+  logicTime: number
+  memory: {
+    geometries: number
+    textures: number
+  }
+  updateStats: (stats: { 
+    fps: number, 
+    frameTime: number, 
+    drawCalls: number, 
+    triangles: number, 
+    logicTime: number,
+    memory: { geometries: number, textures: number }
+  }) => void
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -35,11 +49,15 @@ export const useGameStore = create<GameState>((set) => ({
   
   fps: 0,
   frameTime: 0,
+  drawCalls: 0,
+  triangles: 0,
+  logicTime: 0,
+  memory: { geometries: 0, textures: 0 },
 
   setPhase: (phase) => set({ phase }),
   setTheme: (theme) => set({ theme }),
   setSelectedCharacter: (unitId) => set({ selectedCharacter: unitId }),
   nextWave: () => set((state) => ({ wave: state.wave + 1 })),
   addGold: (amount) => set((state) => ({ gold: state.gold + amount })),
-  updateStats: (fps, frameTime) => set({ fps, frameTime }),
+  updateStats: (stats) => set((state) => ({ ...state, ...stats })),
 }))

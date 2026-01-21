@@ -7,40 +7,18 @@ import { useEntities } from 'miniplex-react'
 import { useGameStore } from '../store/useGameStore'
 import { createPlayer } from '../entities/player'
 import { createNPC } from '../entities/npc'
-import { world, Entity } from '../game/world'
+import { world } from '../game/world'
 import { useKeyboard } from '../hooks/useKeyboard'
-import { movementSystem } from '../systems/movementSystem'
-import { aiSystem } from '../systems/aiSystem'
-import { spawnSystem, resetSpawner } from '../systems/spawnSystem'
-import { inputSystem } from '../systems/inputSystem'
+import { resetSpawner } from '../systems/spawnSystem'
 import { GAME_CONFIG } from '../game/config'
 import { PixelSprite } from '../components/Sprites'
 import { UNITS } from '../assets/assets'
 import { Stage } from '../components/Stage'
 import { useSmoothCamera } from '../hooks/useSmoothCamera'
+import { useBattleSystems } from '../hooks/useBattleSystems'
 
 /**
- * 性能数据采集器
- */
-function PerformanceMonitor() {
-  const updateStats = useGameStore((state) => state.updateStats)
-  const frameCount = useRef(0)
-  const lastTime = useRef(performance.now())
-
-  useFrame((_, delta) => {
-    frameCount.current++
-    const now = performance.now()
-    if (now - lastTime.current >= 1000) {
-      updateStats(frameCount.current, delta * 1000)
-      frameCount.current = 0
-      lastTime.current = now
-    }
-  })
-  return null
-}
-
-/**
- * 单个实体的 3D 视图
+ * 单个实体的 3D 表现层
  */
 function EntityView({ entity, cameraRight, playerPosition }: any) {
   const groupRef = useRef<THREE.Group>(null)
@@ -100,7 +78,7 @@ function EntityView({ entity, cameraRight, playerPosition }: any) {
 }
 
 /**
- * 实体管理容器
+ * 实体渲染管理器
  */
 function Entities() {
   const entities = useEntities(world)
@@ -133,23 +111,22 @@ function Entities() {
   )
 }
 
-export function BattleScene() {
+/**
+ * 战斗场景 3D 世界入口
+ */
+export function BattleWorld() {
   const selectedCharacter = useGameStore((state) => state.selectedCharacter)
   const currentWave = useGameStore((state) => state.wave)
-  const elapsedTime = useRef(0)
   const keys = useKeyboard()
   const orbitControlsRef = useRef<any>(null)
 
+  // 1. 运行核心逻辑系统
+  const { elapsedTime } = useBattleSystems(keys, currentWave)
+
+  // 2. 运行相机控制器
   useSmoothCamera(orbitControlsRef)
 
-  useFrame((state, delta) => {
-    elapsedTime.current += delta
-    inputSystem(keys.current, state.camera)
-    spawnSystem(delta, elapsedTime.current, currentWave)
-    aiSystem(delta)
-    movementSystem(delta)
-  })
-
+  // 3. 初始实体生成
   useEffect(() => {
     if (!selectedCharacter) return
     resetSpawner()
@@ -170,7 +147,6 @@ export function BattleScene() {
       <OrbitControls ref={orbitControlsRef} makeDefault enablePan={false} enableZoom={false} enableDamping={true} dampingFactor={0.05} rotateSpeed={0.5} />
       <Stage />
       <Entities />
-      <PerformanceMonitor />
     </>
   )
 }
