@@ -25,32 +25,35 @@ export function PerformanceMonitor() {
   }, [gl])
 
   useFrame((state, delta) => {
-    // 1. 此时渲染器尚未开始本帧的绘制，gl.info 中保存的是【上一帧】渲染后的完整结果
-    // 我们将其锁定到快照中
-    lastFrameStats.current.calls = gl.info.render.calls
-    lastFrameStats.current.triangles = gl.info.render.triangles
+    // 1. 此时渲染器尚未开始本帧的绘制，gl.info 中保存的是【前一帧】渲染后的完整结果
+    // 注意：我们必须在 gl.info.reset() 之前读取这些数据
+    const currentDrawCalls = gl.info.render.calls
+    const currentTriangles = gl.info.render.triangles
+    const currentGeometries = gl.info.memory.geometries
+    const currentTextures = gl.info.memory.textures
 
-    // 2. 手动重置统计，为【本帧】即将开始的渲染做准备
-    gl.info.reset()
-
-    // 3. 正常的采样逻辑（每秒往 Store 推送一次）
+    // 2. 采样并推送数据到全局 Store (每秒更新一次 UI)
     frameCount.current++
     const now = performance.now()
     if (now - lastTime.current >= 1000) {
       updateStats({
         fps: frameCount.current,
         frameTime: delta * 1000,
-        drawCalls: lastFrameStats.current.calls,
-        triangles: lastFrameStats.current.triangles,
+        drawCalls: currentDrawCalls, // 使用实时抓取的数值
+        triangles: currentTriangles,
         logicTime: (state as any).lastLogicDuration || 0,
         memory: {
-          geometries: gl.info.memory.geometries,
-          textures: gl.info.memory.textures
+          geometries: currentGeometries,
+          textures: currentTextures
         }
       })
       frameCount.current = 0
       lastTime.current = now
     }
+    
+    // 3. 重要：手动重置统计，为【本帧】接下来的绘制做准备
+    // 这样 gl.info.render.calls 就会从 0 开始重新计数本帧的绘制
+    gl.info.reset()
   })
 
   return null

@@ -1,6 +1,6 @@
 import { GAME_CONFIG } from '../game/config'
 import { createNPC } from '../entities/npc'
-import { UNITS } from '../assets/assets'
+import { UNITS } from '../data/units'
 
 let lastSpawnTime = 0
 let totalSpawnedInWave = 0
@@ -24,7 +24,7 @@ export const spawnSystem = (
     lastSpawnTime = elapsedTime
     
     // 从池子中随机选一个敌人
-    const randomUnitId = waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)] as keyof typeof UNITS
+    const randomUnitId = waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)]
     
     // 计算刷怪位置：屏幕边缘
     const spawnPos = getRandomEdgePosition()

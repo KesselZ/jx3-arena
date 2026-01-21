@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-import { UNITS } from '../assets/assets'
+import { UNITS } from '../data/units'
 import { GAME_CONFIG } from '../game/config'
 
 export type GamePhase = 'LOBBY' | 'CHARACTER_SELECT' | 'BATTLE' | 'SHOP' | 'GAMEOVER'
@@ -11,12 +11,12 @@ interface GameState {
   theme: GameTheme
   wave: number
   gold: number
-  selectedCharacter: keyof typeof UNITS | null
+  selectedCharacter: string | null
   
   // 动作
   setPhase: (phase: GamePhase) => void
   setTheme: (theme: GameTheme) => void
-  setSelectedCharacter: (unitId: keyof typeof UNITS) => void
+  setSelectedCharacter: (unitId: string) => void
   nextWave: () => void
   addGold: (amount: number) => void
 

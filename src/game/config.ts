@@ -16,6 +16,14 @@ export const GAME_CONFIG = {
     },
     SPAWN_INTERVAL: 2.5,       // 每隔多久生成一次怪物 (秒)
     INITIAL_ENEMIES: 3,        // 开局立即生成的怪物数量
+    TARGET_STICKY_MULT: 1.5,   // 索敌粘性倍率 (射程的倍数)
+    DEATH_DURATION: 0.6,       // 死亡动画总长
+    DEATH_JUMP_HEIGHT: 1.5,    // 死亡弹跳高度
+    DEATH_KNOCKBACK: 2.5,      // 死亡击退距离
+    ATTACK_LUNGE_DURATION: 0.2, // 攻击冲刺时长
+    ATTACK_LUNGE_FORCE: 0.5,   // 攻击冲刺力度
+    MELEE_VFX_PUSH: 0.8,       // 近战特效身前偏移
+    MAX_INSTANCES_PER_TYPE: 1000, // 每种兵种的最大实例数 (同屏上限)
   },
   
   // 关卡/波次配置
@@ -35,18 +43,21 @@ export const GAME_CONFIG = {
   // 视觉/渲染相关
   VISUAL: {
     PIXEL_UNIT: 0.05,          
-    CAMERA_OFFSET: [0, 12, 12] as [number, number, number],
+    CAMERA_OFFSET: [0, 8, 15] as [number, number, number],
     // 相机与动画参数
     CAMERA_LERP: 0.1,
     ZOOM_LERP: 0.1,
     ZOOM_MIN: 5,
     ZOOM_MAX: 25,
     ZOOM_SENSITIVITY: 0.01,
+    // 相机俯仰角限制 (弧度)
+    CAMERA_MIN_POLAR: Math.PI * (55 / 180), // 55度
+    CAMERA_MAX_POLAR: Math.PI * (85 / 180), // 85度
     // 角色动画参数
-    ANIM_BOUNCE_FREQ: 4,
-    ANIM_BOUNCE_AMP: 0.1,
-    ANIM_TILT_AMP: 0.05,
-    HIT_FLASH_DURATION: 0.1,
+    ANIM_BOUNCE_FREQ: 8,
+    ANIM_BOUNCE_AMP: 0.12,
+    ANIM_TILT_AMP: 0.08,
+    HIT_FLASH_DURATION: 0.15, // 延长受击变红时长，增加视觉反馈
   },
   
   // 环境配置 (支持多场景切换)

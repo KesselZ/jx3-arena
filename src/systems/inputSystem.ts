@@ -10,7 +10,7 @@ export const inputSystem = (keys: Record<string, boolean>, camera: THREE.Camera)
   const player = world.entities.find(e => e.id === 'player-main')
   if (!player || !player.velocity) return
 
-  const moveSpeed = GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED
+  const moveSpeed = player.stats?.baseSpeed || GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED
   
   // 每一帧重置速度
   player.velocity.x = 0

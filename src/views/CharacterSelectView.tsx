@@ -1,6 +1,24 @@
 import { useGameStore } from '../store/useGameStore'
-import { UNITS } from '../assets/assets'
-import { SpriteIcon } from '../components/Sprites'
+import { Assets } from '../assets/assets'
+import { UNITS } from '../data/units'
+
+/**
+ * 2D 像素图标组件
+ */
+const SpriteIcon = ({ unitId, size = 64, className = "" }: { unitId: string, size?: number, className?: string }) => {
+  const style = Assets.getCSS(unitId);
+  return (
+    <div 
+      className={`pixel-art ${className}`}
+      style={{
+        ...style,
+        width: size,
+        height: size,
+        backgroundRepeat: 'no-repeat',
+      }}
+    />
+  );
+};
 
 export const CharacterSelectView = () => {
   const setPhase = useGameStore((state) => state.setPhase)
@@ -8,8 +26,8 @@ export const CharacterSelectView = () => {
 
   // 动态获取所有可玩角色
   const playableCharacters = Object.entries(UNITS)
-    .filter(([_, def]) => (def as any).isPlayable)
-    .map(([id, def]) => ({ id, ...def as any }))
+    .filter(([_, def]) => def.isPlayable)
+    .map(([id, def]) => ({ id, ...def }))
 
   const handleSelect = (id: string) => {
     setSelectedCharacter(id as any)

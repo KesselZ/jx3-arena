@@ -4,6 +4,9 @@ import { inputSystem } from '../systems/inputSystem'
 import { spawnSystem } from '../systems/spawnSystem'
 import { aiSystem } from '../systems/aiSystem'
 import { movementSystem } from '../systems/movementSystem'
+import { combatSystem } from '../systems/combatSystem'
+import { lifetimeSystem } from '../systems/lifetimeSystem' // 新增
+import { world, queries } from '../game/world'
 import { useGameStore } from '../store/useGameStore'
 
 /**
@@ -23,7 +26,18 @@ export function useBattleSystems(keys: any, currentWave: number) {
     inputSystem(keys.current, state.camera)
     spawnSystem(delta, elapsedTime.current, currentWave)
     aiSystem(delta)
+    combatSystem(delta) 
     movementSystem(delta)
+    lifetimeSystem(delta) // 新增：执行生命周期回收
+    
+    // 检查玩家是否死亡 -> 游戏结束 (使用预定义查询)
+    const player = queries.players.first
+    if (player && player.dead) {
+      const timeSinceDeath = (performance.now() / 1000) - (player.deathTime || 0)
+      if (timeSinceDeath > 1.5) { 
+        useGameStore.getState().setPhase('GAMEOVER')
+      }
+    }
     
     // 将逻辑耗时存入 state，供 PerformanceMonitor 观测
     const end = performance.now();
