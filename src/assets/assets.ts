@@ -48,69 +48,66 @@ export const UNITS = {
 } as const;
 
 // --- 2. 核心逻辑 (The Engine) ---
-const textureCache: Record<string, { texture: THREE.Texture, width: number, height: number }> = {};
+const baseTextureCache: Record<string, THREE.Texture> = {};
+const finalTextureCache: Record<string, { texture: THREE.Texture, width: number, height: number, anchorY: number }> = {};
 
 export const Assets = {
   /**
-   * 自动处理精灵图：裁剪留白、对齐锚点、生成 Three.js 纹理
+   * 采用“图集克隆 + 像素预探测”模式：
+   * 1. 共享大图纹理，确保合批。
+   * 2. 预先扫描像素，算出脚底位置（anchorY），供渲染层进行视觉补偿。
    */
-  getTexture: async (unitId: keyof typeof UNITS): Promise<{ texture: THREE.Texture, width: number, height: number }> => {
-    if (textureCache[unitId]) return textureCache[unitId];
+  getTexture: async (unitId: keyof typeof UNITS): Promise<{ texture: THREE.Texture, width: number, height: number, anchorY: number }> => {
+    if (finalTextureCache[unitId]) return finalTextureCache[unitId];
 
     const unit = UNITS[unitId];
     const sheet = SPRITE_SHEETS[unit.sheet as keyof typeof SPRITE_SHEETS];
 
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = sheet.path;
-      img.onload = () => {
-        const cw = img.width / sheet.cols, ch = img.height / sheet.rows;
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-        
-        // 1. 提取原始切片
-        canvas.width = cw; canvas.height = ch;
-        ctx.drawImage(img, unit.col * cw, unit.row * ch, cw, ch, 0, 0, cw, ch);
+    // 1. 加载基础大图
+    if (!baseTextureCache[unit.sheet]) {
+      const loader = new THREE.TextureLoader();
+      const baseTex = await loader.loadAsync(sheet.path);
+      baseTex.minFilter = baseTex.magFilter = THREE.NearestFilter;
+      baseTextureCache[unit.sheet] = baseTex;
+    }
 
-        if ((unit.anchor as string) === 'none') {
-          const tex = new THREE.CanvasTexture(canvas);
-          tex.minFilter = tex.magFilter = THREE.NearestFilter;
-          const result = { texture: tex, width: cw, height: ch };
-          textureCache[unitId] = result;
-          resolve(result);
-          return;
-        }
+    const baseTex = baseTextureCache[unit.sheet];
+    const img = baseTex.image;
+    const cw = img.width / sheet.cols;
+    const ch = img.height / sheet.rows;
 
-        // 2. 探测像素边界 (检测非透明像素)
-        const data = ctx.getImageData(0, 0, cw, ch).data;
-        let x0 = cw, x1 = 0, y0 = ch, y1 = 0;
-        for (let i = 3; i < data.length; i += 4) {
-          if (data[i] > 0) {
-            const px = (i / 4) % cw, py = Math.floor((i / 4) / cw);
-            x0 = Math.min(x0, px); x1 = Math.max(x1, px);
-            y0 = Math.min(y0, py); y1 = Math.max(y1, py);
-          }
-        }
+    // 2. 核心：预扫描像素探测脚底 (anchorY)
+    // 我们在内存里临时画一下这一帧，探测它的实际像素边界
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = cw; tempCanvas.height = ch;
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
+    tempCtx.drawImage(img, unit.col * cw, unit.row * ch, cw, ch, 0, 0, cw, ch);
+    
+    const pixelData = tempCtx.getImageData(0, 0, cw, ch).data;
+    let lastVisibleY = ch; // 默认最底部
+    for (let i = pixelData.length - 1; i >= 3; i -= 4) {
+      if (pixelData[i] > 30) { // 透明度阈值
+        const py = Math.floor((i / 4) / cw);
+        lastVisibleY = py;
+        break; // 从下往上找，找到第一个非透明像素就停
+      }
+    }
+    // 算出脚底占整个切片高度的比例 (0 = 顶部, 1 = 底部)
+    const anchorY = lastVisibleY / ch;
 
-        // 3. 生成紧凑的成品纹理
-        const w = x1 - x0 + 1, h = y1 - y0 + 1;
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = w; finalCanvas.height = h;
-        finalCanvas.getContext('2d')!.drawImage(canvas, x0, y0, w, h, 0, 0, w, h);
+    // 3. 克隆纹理（共享显存）
+    const tex = baseTex.clone();
+    tex.repeat.set(1 / sheet.cols, 1 / sheet.rows);
+    tex.offset.set(unit.col / sheet.cols, (sheet.rows - 1 - unit.row) / sheet.rows);
+    tex.needsUpdate = true;
 
-        const tex = new THREE.CanvasTexture(finalCanvas);
-        tex.minFilter = tex.magFilter = THREE.NearestFilter;
-        
-        const result = { texture: tex, width: w, height: h };
-        textureCache[unitId] = result;
-        resolve(result);
-      };
-    });
+    const result = { texture: tex, width: cw, height: ch, anchorY };
+    finalTextureCache[unitId] = result;
+    return result;
   },
 
   /**
-   * UI 专用：获取 CSS 背景样式
+   * UI 专用：获取 CSS 背景样式 (直接使用原始路径，效率最高)
    */
   getCSS: (unitId: keyof typeof UNITS) => {
     const unit = UNITS[unitId];

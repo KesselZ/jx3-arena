@@ -1,6 +1,6 @@
-import { useFrame } from '@react-three/fiber'
-import { Billboard, OrbitControls, PerspectiveCamera } from '@react-three/drei'
-import { useEffect, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { Instances, Instance, PerspectiveCamera, OrbitControls } from '@react-three/drei'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useEntities } from 'miniplex-react'
 
@@ -11,101 +11,118 @@ import { world } from '../game/world'
 import { useKeyboard } from '../hooks/useKeyboard'
 import { resetSpawner } from '../systems/spawnSystem'
 import { GAME_CONFIG } from '../game/config'
-import { PixelSprite } from '../components/Sprites'
-import { UNITS } from '../assets/assets'
+import { Assets, UNITS } from '../assets/assets'
 import { Stage } from '../components/Stage'
 import { useSmoothCamera } from '../hooks/useSmoothCamera'
 import { useBattleSystems } from '../hooks/useBattleSystems'
 
 /**
- * 单个实体的 3D 表现层
+ * 按兵种合批的渲染器 (进阶版：零子组件开销)
+ * 职责：
+ * 1. 负责 1 个兵种的 1 个 Draw Call。
+ * 2. 内部直接用 for 循环更新矩阵，完全跳过 React 对单个实体的调度。
  */
-function EntityView({ entity, cameraRight, playerPosition }: any) {
-  const groupRef = useRef<THREE.Group>(null)
-  const unitDef = UNITS[entity.unitId as keyof typeof UNITS]
-  const baseScale = (unitDef as any).scale || 1.0
-  const defaultFacing = (unitDef as any).facing || 'right'
-  const tempVec = useRef(new THREE.Vector3())
-  const moveVec = useRef(new THREE.Vector3())
+function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: any[] }) {
+  const [asset, setAsset] = useState<any>(null)
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  
+  // 1. 核心优化：预分配临时对象，彻底消除每秒 60 帧的对象创建压力
+  const _matrix = useMemo(() => new THREE.Matrix4(), [])
+  const _pos = useMemo(() => new THREE.Vector3(), [])
+  const _scale = useMemo(() => new THREE.Vector3(), [])
+  const _quat = useMemo(() => new THREE.Quaternion(), [])
+  const _color = useMemo(() => new THREE.Color(), [])
 
-  useFrame(() => {
-    if (!groupRef.current) return
-    groupRef.current.position.set(entity.position.x, entity.position.y, entity.position.z)
+  useEffect(() => {
+    console.log(`[Asset] 开始加载兵种纹理: ${unitId}`);
+    Assets.getTexture(unitId as any).then((data) => {
+      console.log(`[Asset] 兵种纹理加载成功: ${unitId}`, data);
+      setAsset(data);
+    });
+  }, [unitId])
 
-    let shouldFlip = false
-    if (entity.ai?.targetId === 'player-main' && playerPosition) {
-      tempVec.current.set(playerPosition.x - entity.position.x, 0, playerPosition.z - entity.position.z)
-      const dot = tempVec.current.dot(cameraRight)
-      if (Math.abs(dot) > 0.1) {
-        shouldFlip = defaultFacing === 'right' ? dot < 0 : dot > 0
-      } else if (entity.velocity.x !== 0 || entity.velocity.z !== 0) {
-        moveVec.current.set(entity.velocity.x, 0, entity.velocity.z)
-        shouldFlip = defaultFacing === 'right' ? moveVec.current.dot(cameraRight) < 0 : moveVec.current.dot(cameraRight) > 0
+  useFrame(({ camera }) => {
+    if (!meshRef.current || !asset || entities.length === 0) return
+
+    // 2. 关键修复：显式同步渲染数量，确保 GPU 知道该画多少个
+    meshRef.current.count = entities.length
+
+    const unitDef = UNITS[unitId as keyof typeof UNITS]
+    const baseScale = (unitDef as any).scale || 1.0
+    const defaultFacing = (unitDef as any).facing || 'right'
+    const meshHeight = baseScale
+    const visualYOffset = (asset.anchorY - 0.5) * meshHeight
+
+    for (let i = 0; i < entities.length; i++) {
+      const entity = entities[i]
+      
+      // 3. 复用预分配对象进行同步，避免内存抖动
+      _pos.set(entity.position.x, entity.position.y + visualYOffset, entity.position.z)
+      _quat.copy(camera.quaternion)
+
+      let shouldFlip = false
+      if (entity.velocity.x !== 0) {
+        shouldFlip = defaultFacing === 'right' ? entity.velocity.x < 0 : entity.velocity.x > 0
       }
-    } else if (entity.velocity.x !== 0 || entity.velocity.z !== 0) {
-      moveVec.current.set(entity.velocity.x, 0, entity.velocity.z)
-      shouldFlip = defaultFacing === 'right' ? moveVec.current.dot(cameraRight) < 0 : moveVec.current.dot(cameraRight) > 0
+      const scaleX = shouldFlip ? -baseScale : baseScale
+      _scale.set(scaleX, baseScale, 1)
+
+      _matrix.compose(_pos, _quat, _scale)
+      meshRef.current.setMatrixAt(i, _matrix)
+
+      // 4. 受击颜色快速反馈
+      const isHit = performance.now() / 1000 - (entity.health.lastHitTime || 0) < 0.1
+      _color.set(isHit ? '#ff0000' : '#ffffff')
+      meshRef.current.setColorAt(i, _color)
     }
 
-    const spriteMesh = groupRef.current.getObjectByName('pixel-sprite-mesh')
-    if (spriteMesh) spriteMesh.scale.x = shouldFlip ? -1 : 1
+    meshRef.current.instanceMatrix.needsUpdate = true
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true
   })
 
-  const healthPercent = Math.max(0, entity.health.current / entity.health.max)
-  const barColor = entity.type === 'enemy' ? '#ef4444' : '#4ade80'
+  if (!asset) return null
+
+  const aspectRatio = asset.width / asset.height
 
   return (
-    <group ref={groupRef}>
-      <Billboard follow={true}>
-        <PixelSprite 
-          unitId={entity.unitId} 
-          scale={baseScale} 
-          velocity={entity.velocity}
-          lastHitTime={entity.health.lastHitTime}
-        />
-        <group position={[0, baseScale + 0.2, 0]}>
-          <mesh><planeGeometry args={[0.8, 0.08]} /><meshBasicMaterial color="#1a1a1a" transparent opacity={0.8} /></mesh>
-          <mesh position={[-(1 - healthPercent) * 0.4, 0, 0.01]} scale={[healthPercent, 1, 1]}>
-            <planeGeometry args={[0.8, 0.08]} /><meshBasicMaterial color={barColor} />
-          </mesh>
-        </group>
-      </Billboard>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[0.25 * baseScale, 32]} /><meshBasicMaterial color="black" transparent opacity={0.2} />
-      </mesh>
-    </group>
+    <instancedMesh 
+      ref={meshRef} 
+      args={[undefined, undefined, 1000]} 
+      castShadow 
+      receiveShadow
+      frustumCulled={false} // 关键：禁用视锥体剔除，防止由于包围盒计算不准导致的角色消失
+    >
+      <planeGeometry args={[aspectRatio, 1]} />
+      <meshBasicMaterial 
+        map={asset.texture} 
+        transparent 
+        alphaTest={0.5} 
+        side={THREE.DoubleSide} 
+      />
+    </instancedMesh>
   )
 }
 
 /**
- * 实体渲染管理器
+ * 实体渲染管理器 - 混合架构
  */
 function Entities() {
-  const entities = useEntities(world)
-  const cameraRight = useRef(new THREE.Vector3())
-  const playerPos = useRef(new THREE.Vector3())
-  const hasPlayer = useRef(false)
-
-  useFrame((state) => {
-    cameraRight.current.set(1, 0, 0).applyQuaternion(state.camera.quaternion).setComponent(1, 0).normalize()
-    const player = world.entities.find(e => e.id === 'player-main')
-    if (player) {
-      playerPos.current.set(player.position.x, player.position.y, player.position.z)
-      hasPlayer.current = true
-    } else {
-      hasPlayer.current = false
-    }
-  })
+  const allEntities = useEntities(world)
+  
+  const groups = useMemo(() => {
+    const map: Record<string, any[]> = {}
+    const entityArray = [...allEntities]
+    entityArray.forEach(e => {
+      if (!map[e.unitId]) map[e.unitId] = []
+      map[e.unitId].push(e)
+    })
+    return map
+  }, [allEntities])
 
   return (
     <>
-      {[...entities].map((entity) => (
-        <EntityView 
-          key={entity.id} 
-          entity={entity} 
-          cameraRight={cameraRight.current} 
-          playerPosition={hasPlayer.current ? playerPos.current : null} 
-        />
+      {Object.entries(groups).map(([unitId, entities]) => (
+        <UnitTypeGroup key={unitId} unitId={unitId} entities={entities} />
       ))}
     </>
   )
@@ -120,13 +137,13 @@ export function BattleWorld() {
   const keys = useKeyboard()
   const orbitControlsRef = useRef<any>(null)
 
-  // 1. 运行核心逻辑系统
+  // 1. 运行核心逻辑系统 (驱动所有实体位移、AI)
   const { elapsedTime } = useBattleSystems(keys, currentWave)
 
   // 2. 运行相机控制器
   useSmoothCamera(orbitControlsRef)
 
-  // 3. 初始实体生成
+  // 3. 场景初始化逻辑
   useEffect(() => {
     if (!selectedCharacter) return
     resetSpawner()

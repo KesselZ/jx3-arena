@@ -110,18 +110,18 @@ export function PixelSprite({
     if (speed > 0.1) {
       // 行走中的动画：基于时间的正弦波
       const t = state.clock.elapsedTime;
-      // 动画频率与移动速度挂钩
       const freq = speed * 4;
       // 跳动：y 轴微跳
       const bounce = Math.abs(Math.sin(t * freq)) * 0.1 * scale;
       // 倾斜：行走方向的微小旋转
       const tilt = Math.sin(t * freq) * 0.05;
       
-      mesh.position.y = (scale / 2) + bounce;
+      // 关键修正：以 initialMeshY（对齐后的高度）作为动画基准
+      mesh.position.y = initialMeshY + bounce;
       mesh.rotation.z = tilt;
     } else {
       // 停止时的平滑复位
-      mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, scale / 2, 0.1);
+      mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, initialMeshY, 0.1);
       mesh.rotation.z = THREE.MathUtils.lerp(mesh.rotation.z, 0, 0.1);
     }
   });
@@ -132,6 +132,11 @@ export function PixelSprite({
   const meshHeight = scale;
   const meshWidth = scale * aspectRatio;
 
+  // 核心修正：按照专家建议的逻辑进行视觉补偿
+  // 我们在 assets.ts 中探测到的 anchorY 是从顶部算起的比例 (0=顶, 1=底)
+  // 为了让该点对准 y=0，Mesh 的中心点 position.y 应该是 (anchorY - 0.5) * 高度
+  const initialMeshY = (assetData.anchorY - 0.5) * meshHeight;
+
   // 这里的 flipX 仅作为初始状态，真正的实时翻转由外部在 useFrame 中通过直接修改 scale.x 实现
   const initialScaleX = flipX ? -1 : 1;
   
@@ -139,7 +144,7 @@ export function PixelSprite({
     <group ref={groupRef}>
       <mesh 
         name="pixel-sprite-mesh" 
-        position={[0, meshHeight / 2, 0]} 
+        position={[0, initialMeshY, 0]} 
         scale={[initialScaleX, 1, 1]}
         castShadow
         receiveShadow
@@ -152,7 +157,6 @@ export function PixelSprite({
           side={THREE.DoubleSide} 
           alphaTest={0.5} 
         />
-        {/* 关键：自定义深度材质，确保阴影符合像素轮廓 */}
         <meshDepthMaterial 
           attach="customDepthMaterial" 
           map={assetData.texture} 
