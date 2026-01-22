@@ -1,4 +1,4 @@
-import { Entity, queries } from './ecs'
+import { Entity, queries, world } from './ecs'
 import { spatialHash } from './spatialHash'
 
 /**
@@ -11,6 +11,25 @@ export function isHostile(a: Entity['type'], b: Entity['type']): boolean {
   if (a === 'enemy') return b === 'player' || b === 'ally'
   if (a === 'player' || a === 'ally') return b === 'enemy'
   return false
+}
+
+/**
+ * 消融实验专用：寻找主角 (N -> 1 极简逻辑)
+ * 职责：直接返回玩家本人，将所有怪物的索敌复杂度降为 O(1)
+ */
+export function findHero(attacker: Entity): Entity | null {
+  // 观众不参与索敌
+  if (attacker.type === 'spectator') return null
+  
+  // 寻找 ID 为 'player-main' 的实体
+  const player = world.entities.find(e => e.id === 'player-main')
+  
+  // 如果玩家活着且不是同阵营（虽然目前玩家只有一个，但逻辑上保持严谨）
+  if (player && !player.dead && isHostile(attacker.type, player.type)) {
+    return player
+  }
+  
+  return null
 }
 
 /**

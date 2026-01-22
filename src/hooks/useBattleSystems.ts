@@ -28,7 +28,8 @@ export function useBattleSystems(keys: any, currentWave: number) {
     aiSystem(delta)
     combatSystem(delta) 
     movementSystem(delta)
-    collisionSystem()
+    // 消融实验：暂时关闭碰撞系统
+    // collisionSystem()
     
     // 检查玩家是否死亡 -> 游戏结束 (使用预定义查询)
     const player = queries.players.first

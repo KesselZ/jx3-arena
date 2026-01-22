@@ -19,6 +19,15 @@ import { useBattleSystems } from '../hooks/useBattleSystems'
 import { VFXManager } from '../vfx/VFXManager'
 import { Entity } from '../engine/ecs'
 
+// --- 性能优化：在组件外部定义缓存变量，避免每帧在 500 个组件中重复创建对象 ---
+const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _quat = new THREE.Quaternion()
+const _zAxis = new THREE.Vector3(0, 0, 1)
+const _camForward = new THREE.Vector3()
+const _camRight = new THREE.Vector3()
+const _euler = new THREE.Euler()
+
 /**
  * 单个实体的渲染实例
  */
@@ -26,10 +35,6 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
   const instanceRef = useRef<any>(null)
   const visualFlip = useRef(entity.facingFlip ? -1 : 1)
   const baseScale = unitDef.scale || 1.0
-  const meshHeight = baseScale
-  const _v1 = useMemo(() => new THREE.Vector3(), [])
-  const _quat = useMemo(() => new THREE.Quaternion(), [])
-  const _zAxis = useMemo(() => new THREE.Vector3(0, 0, 1), [])
 
   useFrame(({ camera }) => {
     if (!instanceRef.current) return
@@ -44,6 +49,8 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
       return
     }
     instanceRef.current.visible = true
+    
+    // 统一设置初始四元数（面向相机）
     instanceRef.current.quaternion.copy(camera.quaternion)
 
     if (isDead) {
@@ -52,13 +59,19 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
       const forceX = (entity.deathDir?.x || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
       const forceZ = (entity.deathDir?.z || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
       const rotationProgress = Math.min(1, p * 1.6)
-      const camRight = _v1.set(1, 0, 0).applyQuaternion(camera.quaternion)
-      const dot = (entity.deathDir?.x || 0) * camRight.x + (entity.deathDir?.z || 0) * camRight.z
+      
+      // 使用缓存变量 _camRight
+      _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
+      const dot = (entity.deathDir?.x || 0) * _camRight.x + (entity.deathDir?.z || 0) * _camRight.z
       const fallSide = dot > 0 ? -1 : 1 
       const fallZ = rotationProgress * Math.PI * 0.5 * fallSide
       const tiltX = -rotationProgress * Math.PI * 0.2 
-      _quat.setFromEuler(new THREE.Euler(tiltX, 0, fallZ))
+      
+      // 使用缓存变量 _euler 和 _quat
+      _euler.set(tiltX, 0, fallZ)
+      _quat.setFromEuler(_euler)
       instanceRef.current.quaternion.multiply(_quat)
+      
       const r = baseScale * 0.5 
       const offsetY = Math.cos(fallZ) * r * Math.cos(tiltX)
       instanceRef.current.position.set(entity.position.x + forceX, entity.position.y + offsetY + jumpHeight, entity.position.z + forceZ)
@@ -85,7 +98,7 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
     }
 
     instanceRef.current.position.set(entity.position.x + lungeX, entity.position.y + bounce, entity.position.z + lungeZ)
-    instanceRef.current.quaternion.copy(camera.quaternion)
+    
     if (tilt !== 0) {
       _quat.setFromAxisAngle(_zAxis, tilt)
       instanceRef.current.quaternion.multiply(_quat)
@@ -93,17 +106,22 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
 
     const isRecentlyAttacking = timeSinceAttack < 0.3 
     if (entity.velocity && (isRecentlyAttacking || currentSpeed > 0.1)) {
-      _v1.set(1, 0, 0).applyQuaternion(camera.quaternion)
-      const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-      camForward.y = 0; camForward.normalize()
+      // 使用缓存变量，移除 new THREE.Vector3
+      _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
+      _camForward.set(0, 0, -1).applyQuaternion(camera.quaternion)
+      _camForward.y = 0; 
+      _camForward.normalize()
+      
       let sideDot = 0, forwardDot = 0
       if (isRecentlyAttacking) {
         const angle = entity.lastAttackAngle || 0
-        sideDot = Math.sin(angle) * _v1.x + Math.cos(angle) * _v1.z
-        forwardDot = Math.sin(angle) * camForward.x + Math.cos(angle) * camForward.z
+        const s = Math.sin(angle)
+        const c = Math.cos(angle)
+        sideDot = s * _camRight.x + c * _camRight.z
+        forwardDot = s * _camForward.x + c * _camForward.z
       } else {
-        sideDot = entity.velocity.x * _v1.x + entity.velocity.z * _v1.z
-        forwardDot = entity.velocity.x * camForward.x + entity.velocity.z * camForward.z
+        sideDot = entity.velocity.x * _camRight.x + entity.velocity.z * _camRight.z
+        forwardDot = entity.velocity.x * _camForward.x + entity.velocity.z * _camForward.z
       }
       if (isRecentlyAttacking || Math.abs(sideDot) > Math.abs(forwardDot) * 0.5 + 0.1) {
         entity.facingFlip = (unitDef.facing || 'right') === 'right' ? sideDot < 0 : sideDot > 0
@@ -153,6 +171,10 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
     >
       <meshStandardMaterial 
         map={asset.texture} 
+        emissiveMap={asset.texture}
+        emissive={new THREE.Color(0xffffff)}
+        emissiveIntensity={0.8}
+        color={new THREE.Color(0x444444)}
         transparent 
         alphaTest={0.5} 
         side={THREE.DoubleSide} 

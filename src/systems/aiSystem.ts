@@ -1,5 +1,5 @@
 import { world, Entity, queries } from '../engine/ecs'
-import { findNearestHostile } from '../engine/targeting'
+import { findNearestHostile, findHero } from '../engine/targeting'
 import { GAME_CONFIG } from '../game/config'
 
 let aiFrameCounter = 0
@@ -20,8 +20,8 @@ export const aiSystem = (delta: number) => {
     // 这样 500 个实体在每一帧只需要处理约 166 个
     if ((i + aiFrameCounter) % 3 !== 0) continue
 
-    // 1. 利用统一的索敌引擎寻找目标
-    const nearestTarget = findNearestHostile(entity)
+    // 1. 消融实验：使用极简的 findHero 替代 findNearestHostile
+    const nearestTarget = findHero(entity)
 
     // 2. 执行追逐逻辑
     if (nearestTarget) {
