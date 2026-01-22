@@ -1,5 +1,5 @@
 import { useEntities } from 'miniplex-react'
-import { world } from '../engine/ecs'
+import { world, queries } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
 import { GAME_CONFIG } from '../game/config'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -134,20 +134,53 @@ function StatsPanel() {
 }
 
 /**
+ * 核心：血量同步逻辑 (Canvas 内部组件)
+ * 职责：在 useFrame 中每帧同步数据到外部 DOM 元素
+ */
+export function HealthSync({ player, barRef, textRef }: { player: any, barRef: React.RefObject<HTMLDivElement>, textRef: React.RefObject<HTMLSpanElement> }) {
+  useFrame(() => {
+    if (!player || !player.health || !barRef.current || !textRef.current) return
+    
+    const current = player.health.current
+    const max = player.health.max
+    const percent = Math.max(0, (current / max) * 100)
+    
+    // 直接操作 DOM 样式，性能最优
+    barRef.current.style.width = `${percent}%`
+    textRef.current.innerText = `${Math.ceil(current)} / ${max}`
+  })
+  return null
+}
+
+/**
  * 战斗界面 UI 覆盖层 (Heads-Up Display)
  */
-export function BattleHUD() {
+export function BattleHUD({ barRef, textRef }: { barRef: React.RefObject<HTMLDivElement>, textRef: React.RefObject<HTMLSpanElement> }) {
   const setPhase = useGameStore((state) => state.setPhase)
   const wave = useGameStore((state) => state.wave)
+  
+  // 1. 初始获取玩家实体
+  const { entities } = useEntities(queries.players)
+  const player = entities[0]
 
   return (
     <div className="absolute inset-0 z-10 pointer-events-none p-8 flex flex-col justify-between text-jx3-gold">
       {/* 顶部：波次与回营 */}
       <div className="flex justify-between items-start pointer-events-auto">
         <div className="pixel-panel border-jx3-gold !bg-jx3-ink !text-jx3-gold">
-          <h2 className="font-bold tracking-tighter">第 {wave} 波</h2>
+          <h2 className="font-bold tracking-tighter">
+            {player?.unitId ? `侠士: ${player.unitId}` : '准备战斗'}
+          </h2>
           <div className="w-48 h-4 bg-jx3-wood border-2 border-jx3-ink mt-2 relative overflow-hidden">
-            <div className="h-full bg-jx3-vermilion" style={{ width: '80%' }}></div>
+            <div 
+              ref={barRef}
+              className="h-full bg-jx3-vermilion transition-all duration-100 ease-out" 
+              style={{ width: '0%' }} 
+            ></div>
+          </div>
+          <div className="text-[10px] mt-1 opacity-70 flex justify-between">
+            <span>气血值</span>
+            <span ref={textRef}>0 / 0</span>
           </div>
         </div>
         <button 

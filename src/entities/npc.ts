@@ -20,6 +20,8 @@ export const createNPC = (
     position: { x, y: 0, z },
     velocity: { x: 0, y: 0, z: 0 },
     health: { current: 50, max: 50 },
+    facingFlip: false,
+    visualFlip: 1,
     // 赋予 AI 组件
     ai: { 
       behavior: 'chase', // 默认都开启追逐逻辑
@@ -58,6 +60,8 @@ export const createSpectator = (
     type: 'spectator',
     unitId,
     position: { x, y, z },
+    facingFlip: false,
+    visualFlip: 1,
     // 观众不需要 velocity, health, ai, stats 等组件
     // 这样他们会自动被 movementSystem, aiSystem, combatSystem 忽略
   } as any) // 使用 any 绕过严格的 Entity 必填项检查，因为他们确实不需要那些

@@ -13,7 +13,9 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
     unitId, 
     position: { x, y: 0, z },
     velocity: { x: 0, y: 0, z: 0 },
-    health: { current: 100, max: 100 },
+    health: { current: 10000, max: 10000 },
+    facingFlip: false,
+    visualFlip: 1,
     attack: { 
       power: combat.power, 
       speed: combat.speed, 

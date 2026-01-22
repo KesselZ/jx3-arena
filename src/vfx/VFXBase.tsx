@@ -1,62 +1,107 @@
+/**
+ * VFXBase: 高性能特效渲染底座
+ * 
+ * --- 核心约定 (Conventions) ---
+ * 1. Z轴正方向约定：所有特效在 Library 中应默认朝向本地 +Z 轴设计。
+ * 2. 逻辑与表现分离：
+ *    - VFXBase (逻辑层): 负责世界坐标同步、根据 entity.effect.angle 自动旋转对准目标。
+ *    - VFXLibrary (表现层): 负责定义几何体、材质及本地空间的数学动画 (缩放、颜色、本地位移)。
+ * 3. 性能优化：使用全局 Scratchpad 对象，严禁在 onUpdate 循环中 new 对象。
+ * 4. 生命周期：VFXBase 根据 entity.effect.duration 自动从 ECS 中移除过期实体。
+ */
+
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Instances, Instance } from '@react-three/drei'
+import { Instances } from '@react-three/drei'
 import * as THREE from 'three'
 import { world } from '../engine/ecs'
+import { GAME_CONFIG } from '../game/config'
+
+// 全局渲染临时对象
+const _tempObj = new THREE.Object3D()
+const _up = new THREE.Vector3(0, 1, 0)
 
 /**
- * VFXBase: 特效渲染底座
- * 职责：
- * 1. 自动开启 GPU 实例化 (Instances)
- * 2. 自动管理每个实例的生命周期 (播完自毁)
- * 3. 自动提供动画进度 (progress)
+ * VFXGroup: 高性能特效渲染底座
  */
 export function VFXGroup({ 
   entities, 
   geometry, 
   material, 
   onUpdate, 
-  limit = 1000 
+  limit = 1000,
+  renderOrder = 10
 }: { 
   entities: any[], 
   geometry: React.ReactNode, 
   material: React.ReactNode,
-  onUpdate: (instance: any, progress: number, entity: any) => void,
-  limit?: number
+  onUpdate: (instance: THREE.Object3D, progress: number, entity: any) => void,
+  limit?: number,
+  renderOrder?: number
 }) {
+  const meshRef = useRef<any>(null)
+
+  useFrame(() => {
+    if (!meshRef.current) return
+    
+    const now = performance.now() / 1000
+    const count = entities.length
+
+    for (let i = 0; i < count; i++) {
+      const entity = entities[i]
+      const fx = entity.effect
+      if (!fx) continue
+
+      const age = now - fx.startTime
+      const progress = Math.min(1, age / fx.duration)
+
+      if (age > fx.duration) {
+        world.remove(entity)
+        continue
+      }
+
+      // --- 1. 【逻辑接管层】：初始化世界空间变换 ---
+      _tempObj.position.set(entity.position.x, entity.position.y || 0, entity.position.z)
+      
+      // 【对齐逻辑】：fx.angle 是世界角度，Math.PI 补偿贴图默认朝向
+      if (fx.angle !== undefined) {
+        _tempObj.quaternion.setFromAxisAngle(_up, fx.angle + Math.PI)
+      } else {
+        _tempObj.quaternion.set(0, 0, 0, 1)
+      }
+      
+      _tempObj.scale.set(1, 1, 1)
+      _tempObj.updateMatrix() 
+
+      // --- 2. 【美术定义层】：调用 Library 处理本地空间表现 ---
+      onUpdate(_tempObj, progress, entity)
+
+      // --- 3. 应用最终矩阵 ---
+      _tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+      
+      if (meshRef.current.instanceColor && (_tempObj as any)._color) {
+        meshRef.current.setColorAt(i, (_tempObj as any)._color)
+      }
+    }
+
+    for (let i = count; i < limit; i++) {
+      _tempObj.position.set(0, -1000, 0)
+      _tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+    }
+
+    meshRef.current.count = count
+    meshRef.current.instanceMatrix.needsUpdate = true
+    if (meshRef.current.instanceColor) {
+      meshRef.current.instanceColor.needsUpdate = true
+    }
+  })
+
   return (
-    <Instances limit={limit} range={entities.length} frustumCulled={false}>
+    <Instances ref={meshRef} limit={limit} frustumCulled={false} castShadow={false} receiveShadow={false} renderOrder={renderOrder}>
       {geometry}
       {material}
-      {entities.map(entity => (
-        <VFXInstance key={entity.id} entity={entity} onUpdate={onUpdate} />
-      ))}
     </Instances>
   )
-}
-
-function VFXInstance({ entity, onUpdate }: { entity: any, onUpdate: any }) {
-  const ref = useRef<any>(null)
-  
-  useFrame(() => {
-    if (!ref.current) return
-    const fx = entity.effect
-    const now = performance.now() / 1000
-    const age = now - fx.startTime
-    const progress = Math.min(1, age / fx.duration)
-
-    // 自动清理：生命周期结束时从 ECS 中移除实体
-    // 注意：如果是多零件特效，多个 VFXInstance 可能会尝试移除同一个 entity，
-    // miniplex.remove 是幂等的，所以这是安全的。
-    if (age > fx.duration) {
-      world.remove(entity)
-      return
-    }
-    
-    // 执行特定特效的动画样式
-    onUpdate(ref.current, progress, entity)
-  })
-  
-  // 优雅修复：初始状态设为缩放 0，防止在 useFrame 计算出正确位置前的第一帧闪现鬼影
-  return <Instance ref={ref} scale={0} />
 }

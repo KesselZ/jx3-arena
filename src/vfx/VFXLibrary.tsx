@@ -1,62 +1,88 @@
+/**
+ * VFXLibrary: 特效表现图书馆
+ * 
+ * --- 核心约定 (Conventions) ---
+ * 1. 本地空间基准：所有特效组件应默认朝向本地 +Z 轴进行设计。
+ * 2. 职责边界：此处仅负责定义样式 (Geometry/Material) 和数学动画 (onUpdate)。
+ * 3. 坐标对齐：VFXBase 已处理世界坐标和角度，此处 instance.position.z++ 即为向“前”推进。
+ */
+
 import * as THREE from 'three'
+import { useMemo } from 'react'
 import { VFXGroup } from './VFXBase'
 import { GAME_CONFIG } from '../game/config'
 
-// 缓存复用对象，减少 GC 压力
 const _color = new THREE.Color()
 const _euler = new THREE.Euler()
-const _vec3 = new THREE.Vector3()
+const _vStart = new THREE.Vector3()
+const _vEnd = new THREE.Vector3()
+const _m4 = new THREE.Matrix4()
+const _quat = new THREE.Quaternion()
 
 /**
  * 刀光特效 (SlashingVFX)
- * 交付一个完整的视觉样式包，内部自动实现实例化
+ * 遵循 Z 轴正方向约定，定义了核心亮光与外围气浪两层表现
  */
 export function SlashingVFX({ entities }: { entities: any[] }) {
+  const arcTexture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 512; canvas.height = 512
+    const ctx = canvas.getContext('2d')!
+    const centerX = 256, centerY = 256, radius = 200;
+    const grad = ctx.createRadialGradient(centerX, centerY, radius - 50, centerX, centerY, radius + 50)
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0)')
+    grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)')
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, radius, Math.PI * 1.1, Math.PI * 1.9)
+    ctx.lineTo(centerX, centerY)
+    ctx.fill()
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.needsUpdate = true
+    return tex
+  }, [])
+
   return (
-    <VFXGroup
-      entities={entities}
-      geometry={<ringGeometry args={[0.8, 1.2, 32, 1, -Math.PI * 0.6, Math.PI * 1.2]} />}
-      material={
-        <meshBasicMaterial 
-          transparent 
-          blending={THREE.AdditiveBlending} 
-          side={THREE.DoubleSide} 
-          depthWrite={false} 
-        />
-      }
-      onUpdate={(instance, progress, entity) => {
-        const fx = entity.effect
-        const angle = fx.angle || 0
-        const pushDist = GAME_CONFIG.BATTLE.MELEE_VFX_PUSH
+    <>
+      <VFXGroup
+        entities={entities}
+        geometry={<planeGeometry args={[2.5, 2.5]} />}
+        material={<meshBasicMaterial map={arcTexture} transparent blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} />}
+        onUpdate={(instance, progress, entity) => {
+          instance.position.z += GAME_CONFIG.BATTLE.MELEE_VFX_PUSH
+          instance.position.y = 0.8
+          _euler.set(-Math.PI / 2, 0, (progress - 0.5) * 0.4)
+          instance.quaternion.multiply(_quat.setFromEuler(_euler))
+          instance.scale.set(0.8 + progress * 2.5, 0.8 + progress * 2.5, 1)
+          const opacity = Math.pow(1 - progress, 1.5)
+          _color.set(entity.effect.attackerType === 'player' ? "#ff4422" : "#ffffff").multiplyScalar(opacity)
+          ;(instance as any)._color = _color
+        }}
+      />
 
-        // 1. 位置同步 (考虑攻击者偏移)
-        instance.position.set(
-          entity.position.x + Math.sin(angle) * pushDist,
-          0.6,
-          entity.position.z + Math.cos(angle) * pushDist
-        )
-
-        // 2. 旋转同步 (平躺看板)
-        _euler.set(-Math.PI / 2, 0, angle - Math.PI / 2)
-        instance.quaternion.setFromEuler(_euler)
-
-        // 3. 动画：由内向外扩散
-        const scale = 0.5 + progress * 3.5
-        instance.scale.set(scale, scale, 1)
-
-        // 4. 颜色与淡出
-        const opacity = Math.pow(1 - progress, 2)
-        const baseColor = fx.attackerType === 'player' ? "#ff2222" : "#ffffff"
-        _color.set(baseColor).multiplyScalar(opacity)
-        instance.color.copy(_color)
-      }}
-    />
+      <VFXGroup
+        entities={entities}
+        geometry={<planeGeometry args={[3.5, 3.5]} />}
+        material={<meshBasicMaterial map={arcTexture} transparent blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} opacity={0.4} />}
+        onUpdate={(instance, progress, entity) => {
+          instance.position.z += GAME_CONFIG.BATTLE.MELEE_VFX_PUSH * 1.2
+          instance.position.y = 0.78
+          _euler.set(-Math.PI / 2, 0, -(progress - 0.5) * 0.3)
+          instance.quaternion.multiply(_quat.setFromEuler(_euler))
+          instance.scale.set(1.2 + progress * 3.0, 1.2 + progress * 3.0, 1)
+          const opacity = Math.pow(1 - progress, 3) * 0.5
+          _color.set(entity.effect.attackerType === 'player' ? "#ffaa88" : "#cccccc").multiplyScalar(opacity)
+          ;(instance as any)._color = _color
+        }}
+      />
+    </>
   )
 }
 
 /**
- * 箭矢/弹道特效 (ArrowVFX)
- * 展示了如何在底座上快速定义复杂的线性插值动画
+ * 箭矢特效 (ArrowVFX)
+ * 特殊案例：点对点特效，覆盖了 Base 的默认位置逻辑
  */
 export function ArrowVFX({ entities }: { entities: any[] }) {
   return (
@@ -64,37 +90,20 @@ export function ArrowVFX({ entities }: { entities: any[] }) {
       entities={entities}
       limit={2000}
       geometry={<boxGeometry args={[0.06, 0.06, 1]} />}
-      material={
-        <meshBasicMaterial 
-          transparent 
-          blending={THREE.AdditiveBlending} 
-          depthWrite={false} 
-        />
-      }
+      material={<meshBasicMaterial transparent blending={THREE.AdditiveBlending} depthWrite={false} />}
       onUpdate={(instance, progress, entity) => {
         const fx = entity.effect
-        
-        // 1. 轨迹计算
-        const start = _vec3.set(fx.attackerPos.x, 1.2, fx.attackerPos.z)
-        const end = new THREE.Vector3(fx.targetPos.x, 1.2, fx.targetPos.z)
-        
-        // 插值位置
-        instance.position.lerpVectors(start, end, progress)
-
-        // 2. 朝向计算 (仅在第一帧或必要时计算会更好，这里演示基础用法)
-        const m = new THREE.Matrix4()
-        m.lookAt(start, end, new THREE.Vector3(0, 1, 0))
-        instance.quaternion.setFromRotationMatrix(m)
-
-        // 3. 动画：前半段伸长，后半段缩短 (模拟流光)
+        _vStart.set(fx.attackerPos.x, 1.2, fx.attackerPos.z)
+        _vEnd.set(fx.targetPos.x, 1.2, fx.targetPos.z)
+        instance.position.lerpVectors(_vStart, _vEnd, progress)
+        _m4.lookAt(_vStart, _vEnd, THREE.Object3D.DEFAULT_UP)
+        instance.quaternion.setFromRotationMatrix(_m4)
         const scaleZ = Math.sin(progress * Math.PI) * 2.0 + 0.1
-        const dist = start.distanceTo(end)
+        const dist = _vStart.distanceTo(_vEnd)
         instance.scale.set(1, 1, Math.min(scaleZ, dist * 0.5))
-
-        // 4. 颜色与淡出
         const opacity = (1 - progress) * 2
-        _color.set("#ffaa00").multiplyScalar(opacity)
-        instance.color.copy(_color)
+        _color.set("#ffaa00").multiplyScalar(opacity);
+        (instance as any)._color = _color
       }}
     />
   )

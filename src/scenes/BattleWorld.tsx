@@ -19,7 +19,7 @@ import { useBattleSystems } from '../hooks/useBattleSystems'
 import { VFXManager } from '../vfx/VFXManager'
 import { Entity } from '../engine/ecs'
 
-// --- 性能优化：在组件外部定义缓存变量，避免每帧在 500 个组件中重复创建对象 ---
+// --- 性能优化：在全局定义缓存对象，供所有 UnitTypeGroup 共享 ---
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
 const _quat = new THREE.Quaternion()
@@ -27,131 +27,18 @@ const _zAxis = new THREE.Vector3(0, 0, 1)
 const _camForward = new THREE.Vector3()
 const _camRight = new THREE.Vector3()
 const _euler = new THREE.Euler()
+const _tempObj = new THREE.Object3D()
+const _tempColor = new THREE.Color()
 
 /**
- * 单个实体的渲染实例
- */
-function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any, unitDef: any }) {
-  const instanceRef = useRef<any>(null)
-  const visualFlip = useRef(entity.facingFlip ? -1 : 1)
-  const baseScale = unitDef.scale || 1.0
-
-  useFrame(({ camera }) => {
-    if (!instanceRef.current) return
-    const currentTime = performance.now() / 1000
-    const isDead = !!entity.dead
-    const timeSinceDeath = isDead ? currentTime - (entity.deathTime || 0) : 0
-    const deathDuration = GAME_CONFIG.BATTLE.DEATH_DURATION
-    const deathProgress = Math.min(1, timeSinceDeath / deathDuration)
-
-    if (isDead && timeSinceDeath >= deathDuration) {
-      world.remove(entity)
-      return
-    }
-    instanceRef.current.visible = true
-    
-    // 统一设置初始四元数（面向相机）
-    instanceRef.current.quaternion.copy(camera.quaternion)
-
-    if (isDead) {
-      const p = deathProgress
-      const jumpHeight = (p * (1 - p) * 4) * GAME_CONFIG.BATTLE.DEATH_JUMP_HEIGHT 
-      const forceX = (entity.deathDir?.x || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
-      const forceZ = (entity.deathDir?.z || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
-      const rotationProgress = Math.min(1, p * 1.6)
-      
-      // 使用缓存变量 _camRight
-      _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
-      const dot = (entity.deathDir?.x || 0) * _camRight.x + (entity.deathDir?.z || 0) * _camRight.z
-      const fallSide = dot > 0 ? -1 : 1 
-      const fallZ = rotationProgress * Math.PI * 0.5 * fallSide
-      const tiltX = -rotationProgress * Math.PI * 0.2 
-      
-      // 使用缓存变量 _euler 和 _quat
-      _euler.set(tiltX, 0, fallZ)
-      _quat.setFromEuler(_euler)
-      instanceRef.current.quaternion.multiply(_quat)
-      
-      const r = baseScale * 0.5 
-      const offsetY = Math.cos(fallZ) * r * Math.cos(tiltX)
-      instanceRef.current.position.set(entity.position.x + forceX, entity.position.y + offsetY + jumpHeight, entity.position.z + forceZ)
-      instanceRef.current.color.setRGB(1, 1 - p, 1 - p)
-      return 
-    }
-
-    const currentSpeed = entity.velocity ? Math.sqrt(entity.velocity.x ** 2 + entity.velocity.z ** 2) : 0
-    let bounce = 0, tilt = 0
-    if (currentSpeed > 0.1) {
-      const t = currentTime * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * (currentSpeed / 5)
-      bounce = Math.abs(Math.sin(t)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
-      tilt = Math.sin(t) * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
-    }
-
-    let lungeX = 0, lungeZ = 0
-    const lastActiveAttackTime = Math.max(entity.lastAttackTime || 0, entity.lastBurstTime || 0)
-    const timeSinceAttack = currentTime - lastActiveAttackTime
-    if (timeSinceAttack < GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION) {
-      const p = timeSinceAttack / GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION
-      const strength = Math.sin(p * Math.PI) * GAME_CONFIG.BATTLE.ATTACK_LUNGE_FORCE 
-      lungeX = Math.sin(entity.lastAttackAngle || 0) * strength
-      lungeZ = Math.cos(entity.lastAttackAngle || 0) * strength
-    }
-
-    instanceRef.current.position.set(entity.position.x + lungeX, entity.position.y + bounce, entity.position.z + lungeZ)
-    
-    if (tilt !== 0) {
-      _quat.setFromAxisAngle(_zAxis, tilt)
-      instanceRef.current.quaternion.multiply(_quat)
-    }
-
-    const isRecentlyAttacking = timeSinceAttack < 0.3 
-    if (entity.velocity && (isRecentlyAttacking || currentSpeed > 0.1)) {
-      // 使用缓存变量，移除 new THREE.Vector3
-      _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
-      _camForward.set(0, 0, -1).applyQuaternion(camera.quaternion)
-      _camForward.y = 0; 
-      _camForward.normalize()
-      
-      let sideDot = 0, forwardDot = 0
-      if (isRecentlyAttacking) {
-        const angle = entity.lastAttackAngle || 0
-        const s = Math.sin(angle)
-        const c = Math.cos(angle)
-        sideDot = s * _camRight.x + c * _camRight.z
-        forwardDot = s * _camForward.x + c * _camForward.z
-      } else {
-        sideDot = entity.velocity.x * _camRight.x + entity.velocity.z * _camRight.z
-        forwardDot = entity.velocity.x * _camForward.x + entity.velocity.z * _camForward.z
-      }
-      if (isRecentlyAttacking || Math.abs(sideDot) > Math.abs(forwardDot) * 0.5 + 0.1) {
-        entity.facingFlip = (unitDef.facing || 'right') === 'right' ? sideDot < 0 : sideDot > 0
-      }
-    }
-    visualFlip.current = THREE.MathUtils.lerp(visualFlip.current, entity.facingFlip ? -1 : 1, 0.25)
-    
-    const timeSinceHit = entity.health ? currentTime - (entity.health.lastHitTime || 0) : 999
-    let hitScale = 1.0
-    if (entity.health && timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION) {
-      const flashP = 1 - (timeSinceHit / GAME_CONFIG.VISUAL.HIT_FLASH_DURATION)
-      instanceRef.current.color.setRGB(1, 1 - flashP, 1 - flashP)
-      hitScale = 1 + Math.sin(flashP * Math.PI) * 0.1
-    } else {
-      instanceRef.current.color.setRGB(1, 1, 1)
-    }
-    instanceRef.current.scale.set(visualFlip.current * baseScale * hitScale, baseScale * hitScale, 1)
-  })
-
-  return (
-    <Instance ref={instanceRef} color="white" scale={0} />
-  )
-}
-
-/**
- * 兵种渲染组
+ * 兵种渲染组：全面拥抱 ECS 渲染架构
+ * 不再为每个实体创建 React 组件，而是由一个 useFrame 统一更新所有 Instance 矩阵
  */
 function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[] }) {
   const asset = Assets.getTextureSync(unitId)
   const unitDef = UNITS[unitId as keyof typeof UNITS]
+  const meshRef = useRef<any>(null)
+
   if (!asset || !unitDef) return null
 
   const geometry = useMemo(() => {
@@ -161,8 +48,145 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
     return geo
   }, [asset.width, asset.height, asset.anchorY])
 
+  useFrame(({ camera }) => {
+    if (!meshRef.current) return
+
+    const currentTime = performance.now() / 1000
+    const deathDuration = GAME_CONFIG.BATTLE.DEATH_DURATION
+    const baseScale = unitDef.scale || 1.0
+
+    // 缓存相机数据，避免在循环中重复计算
+    _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
+    _camForward.set(0, 0, -1).applyQuaternion(camera.quaternion)
+    _camForward.y = 0
+    _camForward.normalize()
+
+    // 遍历所有实体进行“命令式”渲染更新
+    for (let i = 0; i < entities.length; i++) {
+      const entity = entities[i]
+      
+      const isDead = !!entity.dead
+      const timeSinceDeath = isDead ? currentTime - (entity.deathTime || 0) : 0
+      
+      // 1. 处理死亡逻辑：如果是彻底死亡并过期的实体，交给 world 处理，渲染层跳过
+      if (isDead && timeSinceDeath >= deathDuration) {
+        world.remove(entity)
+        continue
+      }
+
+      // 2. 计算位置 (Position) 和 颜色 (Color)
+      _tempObj.quaternion.copy(camera.quaternion)
+      _tempColor.setRGB(1, 1, 1) // 每一帧开始前重置为纯白，确保颜色不污染
+      let hitScale = 1.0
+
+      if (isDead) {
+        // 死亡动画逻辑
+        const p = Math.min(1, timeSinceDeath / deathDuration)
+        const jumpHeight = (p * (1 - p) * 4) * GAME_CONFIG.BATTLE.DEATH_JUMP_HEIGHT 
+        const forceX = (entity.deathDir?.x || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
+        const forceZ = (entity.deathDir?.z || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
+        
+        const rotationProgress = Math.min(1, p * 1.6)
+        const dot = (entity.deathDir?.x || 0) * _camRight.x + (entity.deathDir?.z || 0) * _camRight.z
+        const fallSide = dot > 0 ? -1 : 1 
+        const fallZ = rotationProgress * Math.PI * 0.5 * fallSide
+        const tiltX = -rotationProgress * Math.PI * 0.2 
+        
+        _euler.set(tiltX, 0, fallZ)
+        _quat.setFromEuler(_euler)
+        _tempObj.quaternion.multiply(_quat)
+        
+        const r = baseScale * 0.5 
+        const offsetY = Math.cos(fallZ) * r * Math.cos(tiltX)
+        _tempObj.position.set(entity.position.x + forceX, entity.position.y + offsetY + jumpHeight, entity.position.z + forceZ)
+        _tempColor.setRGB(1, 1 - p, 1 - p)
+      } else {
+        // 生存动画逻辑 (移动跳动、攻击冲刺等)
+        const velocity = entity.velocity || { x: 0, y: 0, z: 0 }
+        const currentSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+        let bounce = 0, tilt = 0
+        if (currentSpeed > 0.1) {
+          const t = currentTime * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * (currentSpeed / 5)
+          bounce = Math.abs(Math.sin(t)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
+          tilt = Math.sin(t) * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
+        }
+
+        let lungeX = 0, lungeZ = 0
+        const lastActiveAttackTime = Math.max(entity.lastAttackTime || 0, entity.lastBurstTime || 0)
+        const timeSinceAttack = currentTime - lastActiveAttackTime
+        if (timeSinceAttack < GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION) {
+          const p = timeSinceAttack / GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION
+          const strength = Math.sin(p * Math.PI) * GAME_CONFIG.BATTLE.ATTACK_LUNGE_FORCE 
+          lungeX = Math.sin(entity.lastAttackAngle || 0) * strength
+          lungeZ = Math.cos(entity.lastAttackAngle || 0) * strength
+        }
+
+        _tempObj.position.set(entity.position.x + lungeX, (entity.position.y || 0) + bounce, entity.position.z + lungeZ)
+        
+        if (tilt !== 0) {
+          _quat.setFromAxisAngle(_zAxis, tilt)
+          _tempObj.quaternion.multiply(_quat)
+        }
+
+        // 3. 处理朝向 (Facing)
+        const isRecentlyAttacking = timeSinceAttack < 0.3 
+        if (entity.velocity && (isRecentlyAttacking || currentSpeed > 0.1)) {
+          let sideDot = 0, forwardDot = 0
+          if (isRecentlyAttacking) {
+            const angle = entity.lastAttackAngle || 0
+            const s = Math.sin(angle), c = Math.cos(angle)
+            sideDot = s * _camRight.x + c * _camRight.z
+            forwardDot = s * _camForward.x + c * _camForward.z
+          } else {
+            sideDot = entity.velocity.x * _camRight.x + entity.velocity.z * _camRight.z
+            forwardDot = entity.velocity.x * _camForward.x + entity.velocity.z * _camForward.z
+          }
+          if (isRecentlyAttacking || Math.abs(sideDot) > Math.abs(forwardDot) * 0.5 + 0.1) {
+            entity.facingFlip = (unitDef.facing || 'right') === 'right' ? sideDot < 0 : sideDot > 0
+          }
+        }
+
+        // 平滑翻转动画：将中间值存回 entity
+        if (entity.visualFlip === undefined) entity.visualFlip = entity.facingFlip ? -1 : 1
+        entity.visualFlip = THREE.MathUtils.lerp(entity.visualFlip, entity.facingFlip ? -1 : 1, 0.25)
+
+        // 4. 处理受击效果 (Hit Flash)
+        const timeSinceHit = entity.health ? currentTime - (entity.health.lastHitTime || 0) : 999
+        if (entity.health && timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION) {
+          const flashP = 1 - (timeSinceHit / GAME_CONFIG.VISUAL.HIT_FLASH_DURATION)
+          _tempColor.setRGB(1, 1 - flashP, 1 - flashP)
+          hitScale = 1 + Math.sin(flashP * Math.PI) * 0.1
+        }
+      }
+
+      // 5. 应用最终矩阵和颜色
+      const vFlip = entity.visualFlip ?? (entity.facingFlip ? -1 : 1)
+      _tempObj.scale.set(vFlip * baseScale * hitScale, baseScale * hitScale, 1)
+      _tempObj.updateMatrix()
+      
+      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+      meshRef.current.setColorAt(i, _tempColor)
+    }
+
+    // 填充剩余的实例，将它们移到视口外或缩放为 0
+    for (let i = entities.length; i < GAME_CONFIG.BATTLE.MAX_INSTANCES_PER_TYPE; i++) {
+      _tempObj.position.set(0, -1000, 0)
+      _tempObj.scale.set(0, 0, 0)
+      _tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+    }
+
+    // 核心：告诉 Three.js 这一帧数据更新了
+    meshRef.current.count = entities.length
+    meshRef.current.instanceMatrix.needsUpdate = true
+    if (meshRef.current.instanceColor) {
+      meshRef.current.instanceColor.needsUpdate = true
+    }
+  })
+
   return (
     <Instances 
+      ref={meshRef}
       limit={GAME_CONFIG.BATTLE.MAX_INSTANCES_PER_TYPE} 
       castShadow 
       receiveShadow 
@@ -188,9 +212,6 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           );
         }}
       />
-      {entities.map((entity) => (
-        <EntityInstance key={entity.id} entity={entity} asset={asset} unitDef={unitDef} />
-      ))}
     </Instances>
   )
 }

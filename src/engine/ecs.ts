@@ -80,6 +80,7 @@ export type Entity = {
   deathDir?: { x: number; y: number; z: number }; // 死亡受力方向
   
   facingFlip?: boolean; // 新增：记忆实体的翻转状态
+  visualFlip?: number;  // 新增：平滑渲染使用的翻转比例 (-1 到 1)
 }
 
 // 创建全局唯一的 ECS 世界

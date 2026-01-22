@@ -28,8 +28,18 @@ export function useBattleSystems(keys: any, currentWave: number) {
     aiSystem(delta)
     combatSystem(delta) 
     movementSystem(delta)
-    // 消融实验：暂时关闭碰撞系统
+    // 消融实验：暂时关闭碰撞系统以观察性能变化
     // collisionSystem()
+
+    // 新增：特效生命周期系统 (手动清理过期的特效实体)
+    for (const entity of world.entities) {
+      if (entity.lifetime) {
+        entity.lifetime.remaining -= delta
+        if (entity.lifetime.remaining <= 0) {
+          world.remove(entity)
+        }
+      }
+    }
     
     // 检查玩家是否死亡 -> 游戏结束 (使用预定义查询)
     const player = queries.players.first

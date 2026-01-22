@@ -20,8 +20,16 @@ export const aiSystem = (delta: number) => {
     // 这样 500 个实体在每一帧只需要处理约 166 个
     if ((i + aiFrameCounter) % 3 !== 0) continue
 
-    // 1. 消融实验：使用极简的 findHero 替代 findNearestHostile
-    const nearestTarget = findHero(entity)
+    // 1. 索敌逻辑优化
+    let nearestTarget: Entity | null = null;
+    
+    if (entity.type === 'enemy') {
+      // 敌人：强制只找主角，O(1) 性能极速
+      nearestTarget = findHero(entity);
+    } else {
+      // 盟友：寻找最近的敌对目标 (因为数量少，O(n) 搜索完全不影响性能)
+      nearestTarget = findNearestHostile(entity);
+    }
 
     // 2. 执行追逐逻辑
     if (nearestTarget) {

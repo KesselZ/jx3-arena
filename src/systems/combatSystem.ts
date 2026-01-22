@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { world, Entity, queries } from '../engine/ecs';
 import { GAME_CONFIG } from '../game/config';
-import { findNearestHostile } from '../engine/targeting';
+import { findNearestHostile, findHero } from '../engine/targeting';
 
 /**
  * 战斗系统：负责检测范围并触发攻击逻辑
@@ -34,31 +34,14 @@ export const combatSystem = (delta: number) => {
 
     if (!canAttack) continue;
 
-    // 消融实验：暂时注释掉索敌逻辑
-    /*
-    // 2. 寻找目标
+    // 2. 索敌逻辑优化
     let target: Entity | null = null;
-
-    // 优先尝试锁定旧目标 (增加目标粘性)
-    if (attacker.currentTargetId) {
-      const prevTarget = world.entities.find(e => e.id === attacker.currentTargetId);
-      if (prevTarget && !prevTarget.dead) {
-        const pdx = prevTarget.position.x - attacker.position.x;
-        const pdz = prevTarget.position.z - attacker.position.z;
-        const pDistSq = pdx * pdx + pdz * pdz;
-        
-        // 粘性距离判定 (也考虑 Edge-to-Edge)
-        const aRad = attacker.stats?.radius || 0;
-        const tRad = prevTarget.stats?.radius || 0;
-        const stickyRange = (attacker.attack.range + aRad + tRad) * GAME_CONFIG.BATTLE.TARGET_STICKY_MULT;
-        
-        if (pDistSq <= stickyRange * stickyRange) {
-          target = prevTarget;
-        }
-      }
-    }
-
-    if (!target) {
+    
+    if (attacker.type === 'enemy') {
+      // 敌人：强制只找主角，O(1) 性能极速
+      target = findHero(attacker);
+    } else {
+      // 玩家或盟友：寻找最近的敌对目标 (因为数量少，O(n) 搜索完全不影响性能)
       target = findNearestHostile(attacker);
     }
 
@@ -84,7 +67,6 @@ export const combatSystem = (delta: number) => {
       // 触发攻击！
       performAttack(attacker, target, currentTime);
     }
-    */
   }
 };
 
@@ -108,7 +90,8 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   // 记录攻击方向角
   const adx = target.position.x - attacker.position.x;
   const adz = target.position.z - attacker.position.z;
-  attacker.lastAttackAngle = Math.atan2(adx, adz);
+  const angle = Math.atan2(adx, adz);
+  attacker.lastAttackAngle = angle;
 
   // 2. 伤害应用
   target.health.current -= attacker.attack!.power;
@@ -129,11 +112,10 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
     target.deathDir = { x: ddx / dist, y: 0, z: ddz / dist };
   }
 
-  // --- 3. 产生特效 (逻辑层只提供语义化的上下文) ---
+  // --- 3. 产生特效 (消融实验结束：恢复特效生成) ---
   const isMelee = attacker.attack!.type === 'melee';
   const dx = target.position.x - attacker.position.x;
   const dz = target.position.z - attacker.position.z;
-  const angle = Math.atan2(dx, dz); 
 
   world.add({
     id: crypto.randomUUID(),
@@ -141,7 +123,7 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
     position: { ...attacker.position },
     velocity: { x: 0, y: 0, z: 0 },
     health: { current: 1, max: 1 },
-    // 移除了冗余的 lifetime 组件，生命周期完全由 VFXLibrary 组件自管理
+    lifetime: { remaining: isMelee ? 0.3 : 0.8 },
     effect: {
       type: attacker.attack!.vfxType,
       startTime: time,
