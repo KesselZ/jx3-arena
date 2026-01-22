@@ -5,8 +5,8 @@ import { spawnSystem } from '../systems/spawnSystem'
 import { aiSystem } from '../systems/aiSystem'
 import { movementSystem } from '../systems/movementSystem'
 import { combatSystem } from '../systems/combatSystem'
-import { lifetimeSystem } from '../systems/lifetimeSystem' // 新增
-import { world, queries } from '../game/world'
+import { collisionSystem } from '../systems/collisionSystem'
+import { world, queries } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
 
 /**
@@ -28,7 +28,7 @@ export function useBattleSystems(keys: any, currentWave: number) {
     aiSystem(delta)
     combatSystem(delta) 
     movementSystem(delta)
-    lifetimeSystem(delta) // 新增：执行生命周期回收
+    collisionSystem()
     
     // 检查玩家是否死亡 -> 游戏结束 (使用预定义查询)
     const player = queries.players.first

@@ -1,4 +1,4 @@
-import { world } from '../game/world'
+import { world } from '../engine/ecs'
 
 export const movementSystem = (delta: number) => {
   // 我们只处理有 position 和 velocity 属性的实体

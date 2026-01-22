@@ -1,4 +1,4 @@
-import { world, Entity } from '../game/world'
+import { world, Entity } from '../engine/ecs'
 import { UNITS } from '../data/units'
 import { Assets } from '../assets/assets'
 
@@ -28,7 +28,8 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
     stats: { 
       speedMult: 1, 
       luck: 10,
-      baseSpeed: unitDef.movement.speed 
+      baseSpeed: unitDef.movement.speed,
+      radius: unitDef.radius ?? (unitDef.scale * 0.35) // 降级方案：基于视觉比例自动计算
     } 
   })
 }

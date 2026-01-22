@@ -72,6 +72,7 @@ export type Entity = {
     speedMult: number; 
     luck?: number;
     baseSpeed: number; // 基础移动速度
+    radius: number;    // 碰撞半径
   }
   
   dead?: boolean
@@ -90,8 +91,8 @@ export const queries = {
   players: world.with('type').where(e => e.type === 'player'),
   enemies: world.with('type').where(e => e.type === 'enemy'),
   allies: world.with('type').where(e => e.type === 'ally'),
-  // 阵营大集合
-  combatants: world.with('type', 'health', 'position'),
+  // 阵营大集合 (排除已死亡实体，提升逻辑层性能)
+  combatants: world.with('type', 'health', 'position').without('dead'),
   effects: world.with('effect'),
-  movable: world.with('position', 'velocity')
+  movable: world.with('position', 'velocity').without('dead')
 }

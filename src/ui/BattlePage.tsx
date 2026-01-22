@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
-import { BattleWorld } from './BattleWorld'
+import { BattleWorld } from '../scenes/BattleWorld'
 import { BattleHUD, PerformanceMonitor } from './BattleHUD'
 
 /**

@@ -28,6 +28,7 @@ export interface UnitConfig {
   movement: {
     speed: number; // 移动速度 (单位/秒)
   };
+  radius?: number; // 碰撞半径 (可选，默认 0.5)
 }
 
 export const UNITS: Record<string, UnitConfig> = {
@@ -40,7 +41,7 @@ export const UNITS: Record<string, UnitConfig> = {
     combat: {
       attackType: 'melee',
       vfxType: 'slash',
-      range: 2.5,
+      range: 0.3,
       speed: 1.5,
       power: 15
     },
@@ -56,7 +57,7 @@ export const UNITS: Record<string, UnitConfig> = {
     combat: {
       attackType: 'melee',
       vfxType: 'slash',
-      range: 3.5,
+      range: 0.5,
       speed: 1.2,
       power: 25
     },
@@ -74,7 +75,7 @@ export const UNITS: Record<string, UnitConfig> = {
     combat: {
       attackType: 'melee',
       vfxType: 'slash',
-      range: 2.0,
+      range: 0.3,
       speed: 1.0,
       power: 10
     },
@@ -92,7 +93,7 @@ export const UNITS: Record<string, UnitConfig> = {
     combat: {
       attackType: 'melee',
       vfxType: 'slash',
-      range: 2.0,
+      range: 0.3,
       speed: 1.2,
       power: 8
     },

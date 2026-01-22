@@ -1,4 +1,4 @@
-import { world, Entity } from '../game/world'
+import { world, Entity } from '../engine/ecs'
 import { UNITS } from '../data/units'
 
 export const createNPC = (
@@ -37,7 +37,8 @@ export const createNPC = (
     },
     stats: {
       speedMult: 1,
-      baseSpeed: unitConfig.movement.speed
+      baseSpeed: unitConfig.movement.speed,
+      radius: unitConfig.radius ?? (unitConfig.scale * 0.35) // 降级方案：基于视觉比例自动计算
     }
   })
 }

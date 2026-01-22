@@ -42,6 +42,8 @@ export const GAME_CONFIG = {
   
   // 视觉/渲染相关
   VISUAL: {
+    GRID_SIZE: 2.0,           // 空间哈希网格大小
+    CAMERA_MODE: 'TPS' as 'TPS' | 'ORBIT', // 新增：控制模式
     PIXEL_UNIT: 0.05,          
     CAMERA_OFFSET: [0, 8, 15] as [number, number, number],
     // 相机与动画参数

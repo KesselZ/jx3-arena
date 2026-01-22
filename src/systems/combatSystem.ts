@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { world, Entity, queries } from '../game/world';
+import { world, Entity, queries } from '../engine/ecs';
 import { GAME_CONFIG } from '../game/config';
+import { findNearestHostile } from '../engine/targeting';
 
 /**
  * 战斗系统：负责检测范围并触发攻击逻辑
@@ -43,15 +44,20 @@ export const combatSystem = (delta: number) => {
         const pdx = prevTarget.position.x - attacker.position.x;
         const pdz = prevTarget.position.z - attacker.position.z;
         const pDistSq = pdx * pdx + pdz * pdz;
-        // 如果旧目标还在粘性射程内，就继续追着打
-        if (pDistSq <= (attacker.attack.range * GAME_CONFIG.BATTLE.TARGET_STICKY_MULT) ** 2) {
+        
+        // 粘性距离判定 (也考虑 Edge-to-Edge)
+        const aRad = attacker.stats?.radius || 0;
+        const tRad = prevTarget.stats?.radius || 0;
+        const stickyRange = (attacker.attack.range + aRad + tRad) * GAME_CONFIG.BATTLE.TARGET_STICKY_MULT;
+        
+        if (pDistSq <= stickyRange * stickyRange) {
           target = prevTarget;
         }
       }
     }
 
     if (!target) {
-      target = findNearest(attacker);
+      target = findNearestHostile(attacker);
     }
 
     if (!target) {
@@ -61,46 +67,22 @@ export const combatSystem = (delta: number) => {
 
     attacker.currentTargetId = target.id;
 
-    // 3. 距离检测
+    // 3. 距离检测 (边缘到边缘 Edge-to-Edge)
     const dx = target.position.x - attacker.position.x;
     const dz = target.position.z - attacker.position.z;
     const distSq = dx * dx + dz * dz;
-    const rangeSq = attacker.attack.range * attacker.attack.range;
+    
+    // 真实的攻击距离应该是：基础射程 + 攻击者半径 + 目标半径
+    const attackerRadius = attacker.stats?.radius || 0;
+    const targetRadius = target.stats?.radius || 0;
+    const effectiveRange = attacker.attack.range + attackerRadius + targetRadius;
+    const rangeSq = effectiveRange * effectiveRange;
 
     if (distSq <= rangeSq) {
       // 触发攻击！
       performAttack(attacker, target, currentTime);
     }
   }
-};
-
-const findNearest = (attacker: Entity): Entity | null => {
-  let nearest: Entity | null = null;
-  let minDistSq = Infinity;
-  
-  const isAttackerEnemy = attacker.type === 'enemy';
-  const candidates = queries.combatants.entities;
-
-  for (const entity of candidates) {
-    if (entity.dead || entity === attacker) continue;
-    
-    // 判定阵营敌对关系
-    const isEnemy = isAttackerEnemy 
-      ? (entity.type === 'player' || entity.type === 'ally')
-      : (entity.type === 'enemy');
-
-    if (!isEnemy) continue;
-    
-    const dx = entity.position.x - attacker.position.x;
-    const dz = entity.position.z - attacker.position.z;
-    const distSq = dx * dx + dz * dz;
-
-    if (distSq < minDistSq) {
-      minDistSq = distSq;
-      nearest = entity;
-    }
-  }
-  return nearest;
 };
 
 const performAttack = (attacker: Entity, target: Entity, time: number) => {
@@ -136,7 +118,6 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
     delete target.input;
     target.velocity.x = target.velocity.z = 0;
     target.dead = true;
-    target.lifetime = { remaining: GAME_CONFIG.BATTLE.DEATH_DURATION }; 
     target.deathTime = time;
 
     const ddx = target.position.x - attacker.position.x;
@@ -154,14 +135,14 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   world.add({
     id: crypto.randomUUID(),
     type: 'effect',
-    position: { ...attacker.position }, // 关键修正：特效产生在攻击者位置
+    position: { ...attacker.position },
     velocity: { x: 0, y: 0, z: 0 },
     health: { current: 1, max: 1 },
-    lifetime: { remaining: isMelee ? 0.3 : 0.8 }, // 延长远程特效寿命到 0.8s
+    // 移除了冗余的 lifetime 组件，生命周期完全由 VFXLibrary 组件自管理
     effect: {
       type: attacker.attack!.vfxType,
       startTime: time,
-      duration: isMelee ? 0.3 : 0.8, // 延长远程特效持续时间
+      duration: isMelee ? 0.3 : 0.8, 
       angle, 
       attackerPos: { ...attacker.position }, 
       targetPos: { ...target.position },

@@ -1,7 +1,7 @@
 import { useGameStore } from './store/useGameStore'
-import { MainMenuView } from './views/MainMenuView'
-import { BattlePage } from './views/BattlePage'
-import { CharacterSelectView } from './views/CharacterSelectView'
+import { MainMenuView } from './ui/MainMenuView'
+import { BattlePage } from './ui/BattlePage'
+import { CharacterSelectView } from './ui/CharacterSelectView'
 
 function App() {
   const phase = useGameStore((state) => state.phase)

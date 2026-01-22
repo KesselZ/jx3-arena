@@ -1,4 +1,4 @@
-import { world } from '../game/world'
+import { world } from '../engine/ecs'
 import { GAME_CONFIG } from '../game/config'
 import * as THREE from 'three'
 
