@@ -31,7 +31,7 @@ export type VisualEffect = {
 
 export type Entity = {
   id: string
-  type: 'player' | 'enemy' | 'ally' | 'bullet' | 'effect'
+  type: 'player' | 'enemy' | 'ally' | 'bullet' | 'effect' | 'spectator'
   unitId?: string
   
   // 核心组件

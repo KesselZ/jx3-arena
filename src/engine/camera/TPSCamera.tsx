@@ -101,7 +101,7 @@ export function TPSCamera() {
     const offsetY = r * Math.sin(p)
     const offsetZ = r * Math.cos(p) * Math.cos(t)
 
-    // 目标聚焦：玩家头部位置
+    // 目标聚焦：玩家头部位置 (恢复 1.2m 偏移，视觉更自然)
     _target.set(player.position.x, player.position.y + 1.2, player.position.z)
     
     // 相机最终理想位置

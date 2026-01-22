@@ -34,9 +34,10 @@ export function collisionSystem() {
       const dz = other.position.z - z
       const distSq = dx * dx + dz * dz
       const minContextDist = radius + other.stats.radius
+      const minDistSq = minContextDist * minContextDist
       
-      // 检查是否发生重叠
-      if (distSq < minContextDist * minContextDist) {
+      // 检查是否发生重叠 (使用平方比较，避免 Math.sqrt)
+      if (distSq < minDistSq) {
         const dist = Math.sqrt(distSq) || 0.0001
         const overlap = minContextDist - dist
         
@@ -44,11 +45,10 @@ export function collisionSystem() {
         const nx = dx / dist
         const nz = dz / dist
         
-        // 分离力量 (通常各承担一半，或者根据质量分配)
+        // 分离力量 (通常各承担一半)
         const force = overlap * 0.5
         
-        // 更新位置 (直接修改位置，或者修改 velocity)
-        // 方案 A: 直接挤开 (更稳定)
+        // 更新位置 (直接挤开)
         entity.position.x -= nx * force
         entity.position.z -= nz * force
         other.position.x += nx * force

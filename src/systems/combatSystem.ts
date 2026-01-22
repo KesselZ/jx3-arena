@@ -34,6 +34,8 @@ export const combatSystem = (delta: number) => {
 
     if (!canAttack) continue;
 
+    // 消融实验：暂时注释掉索敌逻辑
+    /*
     // 2. 寻找目标
     let target: Entity | null = null;
 
@@ -82,6 +84,7 @@ export const combatSystem = (delta: number) => {
       // 触发攻击！
       performAttack(attacker, target, currentTime);
     }
+    */
   }
 };
 

@@ -48,12 +48,14 @@ export const resetSpawner = () => {
  */
 function getRandomEdgePosition() {
   const { x: bx, z: bz } = GAME_CONFIG.BATTLE.SCREEN_BOUNDS
-  const margin = 2 // 在边界外一点点刷新
   
   // 随机选一条边 (0:上, 1:下, 2:左, 3:右)
   const edge = Math.floor(Math.random() * 4)
   let x = 0, z = 0
 
+  // 核心修改：将 margin 改为负数，让敌人在 70*70 区域内边缘生成
+  const margin = -2 
+  
   switch (edge) {
     case 0: // 上
       x = (Math.random() - 0.5) * bx * 2

@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
+import * as THREE from 'three'
 import { BattleWorld } from '../scenes/BattleWorld'
 import { BattleHUD, PerformanceMonitor } from './BattleHUD'
 
@@ -12,7 +13,7 @@ export const BattlePage = () => {
     <div className="w-full h-full relative overflow-hidden bg-jx3-ink">
       {/* 1. 3D 表现层 (WebGL) */}
       <div className="absolute inset-0 z-0">
-        <Canvas shadows>
+        <Canvas shadows={{ type: THREE.BasicShadowMap }}>
           <Suspense fallback={null}>
             <BattleWorld />
             {/* 性能采集插件 */}

@@ -22,8 +22,8 @@ export function findNearestHostile(attacker: Entity): Entity | null {
   
   // 1. 圈层搜索策略：从小到大扩大搜索半径
   // 初始搜索半径，覆盖周围一圈网格
-  const step = spatialHash['cellSize'] || 2
-  const searchRings = [step, step * 4, step * 16] 
+  const step = 2.0 // 对应 VISUAL.GRID_SIZE
+  const searchRings = [step * 2, step * 8, step * 20] 
   
   for (const range of searchRings) {
     const candidates = spatialHash.query(x, z, range)
@@ -46,12 +46,15 @@ export function findNearestHostile(attacker: Entity): Entity | null {
     if (nearest) return nearest
   }
 
-  // 2. 兜底策略：如果圈层搜索都没找到 (比如目标在地图另一端)，执行全局搜索
-  // 这种情况通常只发生在敌人极少且分布极散时，对性能影响微乎其微
+  // 2. 兜底策略：如果圈层搜索都没找到，执行全局搜索 (但限制频率或范围)
+  // 优化：对于普通怪物，如果 40 米内都没人，可能真的不需要再找了
+  // 但为了逻辑严谨，我们保留一个低频的全量扫描
   let globalNearest: Entity | null = null
   let globalMinDistSq = Infinity
   
-  for (const target of queries.combatants.entities) {
+  const combatants = queries.combatants.entities
+  for (let i = 0; i < combatants.length; i++) {
+    const target = combatants[i]
     if (target.dead || target === attacker || !isHostile(faction, target.type)) continue
     
     const dx = target.position.x - x

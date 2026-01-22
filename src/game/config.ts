@@ -11,10 +11,10 @@ export const GAME_CONFIG = {
     WAVE_DURATION: 30,         // 每波时间 (秒)
     PLAYER_INITIAL_SPEED: 5,   // 玩家初始速度
     SCREEN_BOUNDS: {           // 战斗区域限制
-      x: 15,
-      z: 10
+      x: 35,
+      z: 35
     },
-    SPAWN_INTERVAL: 2.5,       // 每隔多久生成一次怪物 (秒)
+    SPAWN_INTERVAL: 0.025,      // 刷怪速度加快100倍 (原2.5秒)
     INITIAL_ENEMIES: 3,        // 开局立即生成的怪物数量
     TARGET_STICKY_MULT: 1.5,   // 索敌粘性倍率 (射程的倍数)
     DEATH_DURATION: 0.6,       // 死亡动画总长
@@ -30,12 +30,12 @@ export const GAME_CONFIG = {
   WAVES: {
     1: { 
       pool: ['bandit', 'archer'] as const, 
-      count: 15, // 总共会生成的数量
+      count: 5000, // 大幅提升上限，用于压力测试
       theme: 'grassland' as const 
     },
     2: { 
       pool: ['bandit', 'archer'] as const, 
-      count: 25, 
+      count: 5000, 
       theme: 'desert' as const 
     }
   },
@@ -53,8 +53,8 @@ export const GAME_CONFIG = {
     ZOOM_MAX: 25,
     ZOOM_SENSITIVITY: 0.01,
     // 相机俯仰角限制 (弧度)
-    CAMERA_MIN_POLAR: Math.PI * (55 / 180), // 55度
-    CAMERA_MAX_POLAR: Math.PI * (85 / 180), // 85度
+    CAMERA_MIN_POLAR: Math.PI * (45 / 180),    // 限制在 45 度，防止拉得太高
+    CAMERA_MAX_POLAR: Math.PI * (89.9 / 180),  // 接近 90 度，允许几乎水平观察
     // 角色动画参数
     ANIM_BOUNCE_FREQ: 8,
     ANIM_BOUNCE_AMP: 0.12,
@@ -65,18 +65,18 @@ export const GAME_CONFIG = {
   // 环境配置 (支持多场景切换)
   THEMES: {
     'grassland': {
-      groundColor: '#1a2e1a', // 深墨绿色
-      gridColor: '#0d1a0d',
-      skyColor: '#050a0f',    // 深夜蓝
-      ambientIntensity: 0.1,  // 极低环境光，突出灯光
-      fog: { color: '#050a0f', near: 20, far: 60 } 
+      groundColor: '#d4b483', // 竞技场土黄色 (宣纸/夯土感)
+      gridColor: '#c4a473',   // 稍深的土色网格
+      skyColor: '#f5efe6',    // 暖白色天空
+      ambientIntensity: 0.6,  
+      fog: { color: '#f5efe6', near: 50, far: 200 } 
     },
     'desert': {
-      groundColor: '#2a2418', // 深褐色
-      gridColor: '#1a160e',
-      skyColor: '#0f0a05',
-      ambientIntensity: 0.1,
-      fog: { color: '#0f0a05', near: 15, far: 45 }
+      groundColor: '#e2bc8a', // 干燥沙土色
+      gridColor: '#d2ac7a',
+      skyColor: '#fff4e0',
+      ambientIntensity: 0.6,
+      fog: { color: '#fff4e0', near: 40, far: 150 }
     }
   },
   

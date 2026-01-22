@@ -42,3 +42,23 @@ export const createNPC = (
     }
   })
 }
+
+/**
+ * 创建观众实体
+ * 只有位置和渲染 ID，不参与战斗和移动逻辑
+ */
+export const createSpectator = (
+  unitId: string,
+  x: number,
+  y: number,
+  z: number
+): Entity => {
+  return world.add({
+    id: crypto.randomUUID(),
+    type: 'spectator',
+    unitId,
+    position: { x, y, z },
+    // 观众不需要 velocity, health, ai, stats 等组件
+    // 这样他们会自动被 movementSystem, aiSystem, combatSystem 忽略
+  } as any) // 使用 any 绕过严格的 Entity 必填项检查，因为他们确实不需要那些
+}

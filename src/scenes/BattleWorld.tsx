@@ -6,7 +6,7 @@ import { useFrame } from '@react-three/fiber'
 
 import { useGameStore } from '../store/useGameStore'
 import { createPlayer } from '../entities/player'
-import { createNPC } from '../entities/npc'
+import { createNPC, createSpectator } from '../entities/npc'
 import { world, queries } from '../engine/ecs'
 import { useKeyboard } from '../hooks/useKeyboard'
 import { resetSpawner } from '../systems/spawnSystem'
@@ -24,11 +24,9 @@ import { Entity } from '../engine/ecs'
  */
 function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any, unitDef: any }) {
   const instanceRef = useRef<any>(null)
-  const healthBarRef = useRef<THREE.Mesh>(null) 
   const visualFlip = useRef(entity.facingFlip ? -1 : 1)
   const baseScale = unitDef.scale || 1.0
   const meshHeight = baseScale
-  const visualYOffset = (asset.anchorY - 0.5) * meshHeight
   const _v1 = useMemo(() => new THREE.Vector3(), [])
   const _quat = useMemo(() => new THREE.Quaternion(), [])
   const _zAxis = useMemo(() => new THREE.Vector3(0, 0, 1), [])
@@ -42,7 +40,6 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
     const deathProgress = Math.min(1, timeSinceDeath / deathDuration)
 
     if (isDead && timeSinceDeath >= deathDuration) {
-      // 视觉自管理：动画演完后，由表现层组件通知逻辑层销毁实体
       world.remove(entity)
       return
     }
@@ -62,15 +59,14 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
       const tiltX = -rotationProgress * Math.PI * 0.2 
       _quat.setFromEuler(new THREE.Euler(tiltX, 0, fallZ))
       instanceRef.current.quaternion.multiply(_quat)
-      const r = visualYOffset
+      const r = baseScale * 0.5 
       const offsetY = Math.cos(fallZ) * r * Math.cos(tiltX)
       instanceRef.current.position.set(entity.position.x + forceX, entity.position.y + offsetY + jumpHeight, entity.position.z + forceZ)
       instanceRef.current.color.setRGB(1, 1 - p, 1 - p)
-      if (healthBarRef.current) healthBarRef.current.visible = false
       return 
     }
 
-    const currentSpeed = Math.sqrt(entity.velocity.x ** 2 + entity.velocity.z ** 2)
+    const currentSpeed = entity.velocity ? Math.sqrt(entity.velocity.x ** 2 + entity.velocity.z ** 2) : 0
     let bounce = 0, tilt = 0
     if (currentSpeed > 0.1) {
       const t = currentTime * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * (currentSpeed / 5)
@@ -88,7 +84,7 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
       lungeZ = Math.cos(entity.lastAttackAngle || 0) * strength
     }
 
-    instanceRef.current.position.set(entity.position.x + lungeX, entity.position.y + visualYOffset + bounce, entity.position.z + lungeZ)
+    instanceRef.current.position.set(entity.position.x + lungeX, entity.position.y + bounce, entity.position.z + lungeZ)
     instanceRef.current.quaternion.copy(camera.quaternion)
     if (tilt !== 0) {
       _quat.setFromAxisAngle(_zAxis, tilt)
@@ -96,7 +92,7 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
     }
 
     const isRecentlyAttacking = timeSinceAttack < 0.3 
-    if (isRecentlyAttacking || currentSpeed > 0.1) {
+    if (entity.velocity && (isRecentlyAttacking || currentSpeed > 0.1)) {
       _v1.set(1, 0, 0).applyQuaternion(camera.quaternion)
       const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
       camForward.y = 0; camForward.normalize()
@@ -114,9 +110,10 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
       }
     }
     visualFlip.current = THREE.MathUtils.lerp(visualFlip.current, entity.facingFlip ? -1 : 1, 0.25)
-    const timeSinceHit = currentTime - (entity.health.lastHitTime || 0)
+    
+    const timeSinceHit = entity.health ? currentTime - (entity.health.lastHitTime || 0) : 999
     let hitScale = 1.0
-    if (timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION) {
+    if (entity.health && timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION) {
       const flashP = 1 - (timeSinceHit / GAME_CONFIG.VISUAL.HIT_FLASH_DURATION)
       instanceRef.current.color.setRGB(1, 1 - flashP, 1 - flashP)
       hitScale = 1 + Math.sin(flashP * Math.PI) * 0.1
@@ -124,22 +121,10 @@ function EntityInstance({ entity, asset, unitDef }: { entity: Entity, asset: any
       instanceRef.current.color.setRGB(1, 1, 1)
     }
     instanceRef.current.scale.set(visualFlip.current * baseScale * hitScale, baseScale * hitScale, 1)
-
-    if (healthBarRef.current) {
-      healthBarRef.current.scale.x = Math.max(0, entity.health.current / entity.health.max)
-      healthBarRef.current.position.set(entity.position.x, entity.position.y + meshHeight + 0.2, entity.position.z)
-      healthBarRef.current.quaternion.copy(camera.quaternion)
-    }
   })
 
   return (
-    <>
-      <Instance ref={instanceRef} color="white" />
-      <mesh ref={healthBarRef}>
-        <planeGeometry args={[1, 0.1]} />
-        <meshBasicMaterial color={entity.type === 'enemy' ? '#ff4444' : '#44ff44'} transparent opacity={0.8} />
-      </mesh>
-    </>
+    <Instance ref={instanceRef} color="white" scale={0} />
   )
 }
 
@@ -150,18 +135,28 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
   const asset = Assets.getTextureSync(unitId)
   const unitDef = UNITS[unitId as keyof typeof UNITS]
   if (!asset || !unitDef) return null
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(asset.width / asset.height, 1)
+    const offset = 0.5 - asset.anchorY
+    geo.translate(0, -offset, 0)
+    return geo
+  }, [asset.width, asset.height, asset.anchorY])
+
   return (
-    <Instances limit={GAME_CONFIG.BATTLE.MAX_INSTANCES_PER_TYPE} castShadow receiveShadow frustumCulled={false}>
-      <planeGeometry args={[asset.width / asset.height, 1]} />
+    <Instances 
+      limit={GAME_CONFIG.BATTLE.MAX_INSTANCES_PER_TYPE} 
+      castShadow 
+      receiveShadow 
+      frustumCulled={false}
+      geometry={geometry}
+    >
       <meshStandardMaterial 
         map={asset.texture} 
         transparent 
         alphaTest={0.5} 
         side={THREE.DoubleSide} 
         onBeforeCompile={(shader) => {
-          // 核心修复：在片元着色器中强制法线指向相机
-          // 在 Standard 材质中，normal 是视图空间 (View Space) 的法线
-          // vec3(0, 0, 1) 在视图空间永远指向相机，这样无论如何翻转，受光面永远是正面
           shader.fragmentShader = shader.fragmentShader.replace(
             '#include <normal_fragment_begin>',
             `
@@ -226,6 +221,25 @@ export function BattleWorld() {
         const spawnPos = { x: (Math.random() - 0.5) * 30, z: (Math.random() - 0.5) * 20 }
         createNPC(waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)], 'enemy', spawnPos.x, spawnPos.z)
       }
+
+      // --- 新增：初始化观众 ---
+      const { x: bx, z: bz } = GAME_CONFIG.BATTLE.SCREEN_BOUNDS
+      const standConfigs = [
+        { center: [0, bz + 75], range: [bx * 2 + 100, 50] }, 
+        { center: [0, -bz - 75], range: [bx * 2 + 100, 50] }, 
+        { center: [bx + 75, 0], range: [50, bz * 2 + 100] }, 
+        { center: [-bx - 75, 0], range: [50, bz * 2 + 100] }, 
+      ]
+
+      standConfigs.forEach(stand => {
+        for (let i = 0; i < 20; i++) {
+          const rx = (Math.random() - 0.5) * stand.range[0] + stand.center[0]
+          const rz = (Math.random() - 0.5) * stand.range[1] + stand.center[1]
+          const level = Math.floor(Math.random() * 8)
+          const ry = -2 + (level * 3) + 1.5 
+          createSpectator('bandit', rx, ry, rz)
+        }
+      })
     };
     initGame();
     return () => world.clear()
