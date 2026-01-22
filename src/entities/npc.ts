@@ -27,6 +27,7 @@ export const createNPC = (
       behavior: 'chase', // 默认都开启追逐逻辑
       targetId: undefined 
     },
+    animOffset: Math.random() * 10, // 新增：随机动画偏移量，打破“军队感”
     // 战斗属性显式对齐
     attack: { 
       power: combat.power, 

@@ -106,7 +106,7 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         const currentSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
         let bounce = 0, tilt = 0
         if (currentSpeed > 0.1) {
-          const t = currentTime * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * (currentSpeed / 5)
+          const t = (currentTime + (entity.animOffset || 0)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * (currentSpeed / 5)
           bounce = Math.abs(Math.sin(t)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
           tilt = Math.sin(t) * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
         }

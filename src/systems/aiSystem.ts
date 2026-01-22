@@ -1,5 +1,5 @@
 import { world, Entity, queries } from '../engine/ecs'
-import { findNearestHostile, findHero } from '../engine/targeting'
+import { findNearestHostile } from '../engine/targeting'
 import { GAME_CONFIG } from '../game/config'
 
 let aiFrameCounter = 0
@@ -12,32 +12,32 @@ export const aiSystem = (delta: number) => {
   const entities = world.entities
   aiFrameCounter++
 
+  // 设定索敌分片：每 10 帧为一个周期，错开更新
+  const TICK_CYCLE = 10
+
   for (let i = 0; i < entities.length; i++) {
     const entity = entities[i]
     if (!entity.ai || entity.ai.behavior !== 'chase' || !entity.velocity || entity.dead) continue
 
-    // 性能优化：分片更新 AI (每 3 帧更新一次，且不同实体错开)
-    // 这样 500 个实体在每一帧只需要处理约 166 个
-    if ((i + aiFrameCounter) % 3 !== 0) continue
-
-    // 1. 索敌逻辑优化
-    let nearestTarget: Entity | null = null;
-    
-    if (entity.type === 'enemy') {
-      // 敌人：强制只找主角，O(1) 性能极速
-      nearestTarget = findHero(entity);
-    } else {
-      // 盟友：寻找最近的敌对目标 (因为数量少，O(n) 搜索完全不影响性能)
-      nearestTarget = findNearestHostile(entity);
+    // 1. 低频索敌逻辑：只有到了自己的“节奏点”才更新目标 ID
+    // 利用 (aiFrameCounter + i) 让不同实体的更新时机均匀分布
+    if ((aiFrameCounter + i) % TICK_CYCLE === 0) {
+      const nearestTarget = findNearestHostile(entity);
+      entity.ai.targetId = nearestTarget?.id;
     }
 
-    // 2. 执行追逐逻辑
-    if (nearestTarget) {
-      const dx = nearestTarget.position.x - entity.position.x
-      const dz = nearestTarget.position.z - entity.position.z
+    // 2. 高频移动逻辑：每一帧都根据当前目标更新速度，保证移动平滑
+    let target: Entity | undefined;
+    if (entity.ai.targetId) {
+      // 优化：先尝试从 queries 里的 combatants 找，比全局 find 快
+      target = queries.combatants.entities.find(e => e.id === entity.ai.targetId);
+    }
+
+    if (target && !target.dead) {
+      const dx = target.position.x - entity.position.x
+      const dz = target.position.z - entity.position.z
       const distSq = dx * dx + dz * dz
       
-      // 保持一定距离 (略小于攻击射程)
       const stopDist = (entity.attack?.range || 1) * 0.8
       const stopDistSq = stopDist * stopDist
       
@@ -53,6 +53,8 @@ export const aiSystem = (delta: number) => {
     } else {
       entity.velocity.x = 0
       entity.velocity.z = 0
+      // 如果目标丢失（死亡或超出范围），清除目标 ID，等待下一个 TICK 重新索敌
+      entity.ai.targetId = undefined;
     }
   }
 }

@@ -1,34 +1,32 @@
 import { queries } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
 
+const COLLISION_CACHE: any[] = [] // 零分配缓存
+
 /**
- * collisionSystem: 碰撞系统
- * 职责：
- * 1. 更新空间哈希索引
- * 2. 处理实体间的圆形碰撞挤压
+ * collisionSystem: 碰撞系统 (SpatialHashV2 优化版)
+ * 职责：处理实体间的圆形碰撞挤压 (Crowd Steering)
+ * 注意：空间哈希的更新已移至 useBattleSystems 顶层，此处仅负责查询和挤压逻辑
  */
 export function collisionSystem() {
   const combatants = queries.combatants.entities
   
-  // 1. 重置并更新空间哈希
-  spatialHash.clear()
-  for (const entity of combatants) {
-    spatialHash.insert(entity)
-  }
-
-  // 2. 处理碰撞挤压 (Crowd Steering)
-  for (const entity of combatants) {
-    if (!entity.stats) continue
+  // 处理碰撞挤压
+  for (let i = 0; i < combatants.length; i++) {
+    const entity = combatants[i]
+    if (!entity.stats || entity.dead) continue
     
     const x = entity.position.x
     const z = entity.position.z
     const radius = entity.stats.radius
     
-    // 查询周围可能碰撞的实体 (查询范围略大于半径)
-    const neighbors = spatialHash.query(x, z, radius * 2)
+    // 1. 利用空间哈希快速获取邻居 (零分配查询)
+    // 碰撞检测通常不需要区分阵营，所以不传 targetSide
+    const neighbors = spatialHash.query(x, z, radius * 2, undefined, COLLISION_CACHE)
     
-    for (const other of neighbors) {
-      if (entity === other || !other.stats) continue
+    for (let j = 0; j < neighbors.length; j++) {
+      const other = neighbors[j]
+      if (entity === other || !other.stats || other.dead) continue
       
       const dx = other.position.x - x
       const dz = other.position.z - z
@@ -36,7 +34,7 @@ export function collisionSystem() {
       const minContextDist = radius + other.stats.radius
       const minDistSq = minContextDist * minContextDist
       
-      // 检查是否发生重叠 (使用平方比较，避免 Math.sqrt)
+      // 2. 检查是否发生重叠
       if (distSq < minDistSq) {
         const dist = Math.sqrt(distSq) || 0.0001
         const overlap = minContextDist - dist
@@ -45,14 +43,20 @@ export function collisionSystem() {
         const nx = dx / dist
         const nz = dz / dist
         
-        // 分离力量 (通常各承担一半)
-        const force = overlap * 0.5
+        // --- 质量比优化：计算挤压权重 ---
+        const massA = entity.stats.mass || 1
+        const massB = other.stats.mass || 1
+        const totalMass = massA + massB
         
-        // 更新位置 (直接挤开)
-        entity.position.x -= nx * force
-        entity.position.z -= nz * force
-        other.position.x += nx * force
-        other.position.z += nz * force
+        // 质量越大，被挤开的比例越小 (反比关系)
+        const weightA = massB / totalMass 
+        const weightB = massA / totalMass
+        
+        // 更新位置
+        entity.position.x -= nx * overlap * weightA
+        entity.position.z -= nz * overlap * weightA
+        other.position.x += nx * overlap * weightB
+        other.position.z += nz * overlap * weightB
       }
     }
   }

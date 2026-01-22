@@ -8,6 +8,7 @@ import { combatSystem } from '../systems/combatSystem'
 import { collisionSystem } from '../systems/collisionSystem'
 import { world, queries } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
+import { spatialHash } from '../engine/spatialHash'
 
 /**
  * 战斗逻辑系统 Hook
@@ -25,11 +26,20 @@ export function useBattleSystems(keys: any, currentWave: number) {
     // 依次运行所有 ECS 系统
     inputSystem(keys.current, state.camera)
     spawnSystem(delta, elapsedTime.current, currentWave)
+
+    // --- 空间哈希手动更新 (由于碰撞系统已关闭，我们必须手动更新索引) ---
+    const combatants = queries.combatants.entities
+    spatialHash.clear()
+    for (let i = 0; i < combatants.length; i++) {
+      spatialHash.insert(combatants[i])
+    }
+    // ---------------------------------------------------------
+
     aiSystem(delta)
     combatSystem(delta) 
     movementSystem(delta)
-    // 消融实验：暂时关闭碰撞系统以观察性能变化
-    // collisionSystem()
+    // 消融实验结束：重新开启碰撞系统，观察 SpatialHashV2 的性能表现
+    collisionSystem()
 
     // 新增：特效生命周期系统 (手动清理过期的特效实体)
     for (const entity of world.entities) {

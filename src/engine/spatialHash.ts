@@ -2,75 +2,145 @@ import { Entity } from './ecs'
 import { GAME_CONFIG } from '../game/config'
 
 /**
- * SpatialHash: 空间哈希管理器 (零 GC 高性能版)
- * 职责：将世界划分为网格，实现 $O(1)$ 的插入和区域查询
- * 优化：使用数值 Key 代替字符串 Key，完全消除运行时的 GC 压力
+ * SpatialHashV2: 分层空间哈希 (基于项目原生 type 优化版)
  */
 export class SpatialHash {
-  private cellSize: number
-  // 使用 Map<number, Entity[]>，Key 是合并后的 32 位整数
-  private grid: Map<number, Entity[]> = new Map()
+  private readonly BOUNDS_X = GAME_CONFIG.BATTLE.SCREEN_BOUNDS.x
+  private readonly BOUNDS_Z = GAME_CONFIG.BATTLE.SCREEN_BOUNDS.z
+  private readonly MAP_SIZE_X = this.BOUNDS_X * 2
+  private readonly MAP_SIZE_Z = this.BOUNDS_Z * 2
+  
+  private readonly L1_CELL_SIZE = 2
+  private readonly L2_CELL_SIZE = 10
+  
+  private readonly L1_COUNT_X = Math.ceil(this.MAP_SIZE_X / this.L1_CELL_SIZE)
+  private readonly L1_COUNT_Z = Math.ceil(this.MAP_SIZE_Z / this.L1_CELL_SIZE)
+  private readonly L2_COUNT_X = Math.ceil(this.MAP_SIZE_X / this.L2_CELL_SIZE)
+  private readonly L2_COUNT_Z = Math.ceil(this.MAP_SIZE_Z / this.L2_CELL_SIZE)
 
-  constructor(cellSize: number = 2) {
-    this.cellSize = cellSize
+  private l1Blackboard: Uint32Array
+  private l2Blackboard: Uint32Array
+
+  // 全局黑板：汇总全图单位数量
+  public totalFriendly = 0 // player + ally
+  public totalEnemy = 0    // enemy
+
+  private l1Cells: Entity[][]
+
+  constructor() {
+    this.l1Blackboard = new Uint32Array(this.L1_COUNT_X * this.L1_COUNT_Z)
+    this.l2Blackboard = new Uint32Array(this.L2_COUNT_X * this.L2_COUNT_Z)
+    this.l1Cells = Array.from({ length: this.L1_COUNT_X * this.L1_COUNT_Z }, () => [])
   }
 
-  /**
-   * 将二维网格坐标映射为一个 32 位整数 Key
-   * 高 16 位存 X，低 16 位存 Z
-   * 偏移 32768 是为了支持负坐标 (范围: -32768 到 32767)
-   */
-  private makeKey(x: number, z: number): number {
-    const cx = (Math.floor(x / this.cellSize) + 32768) & 0xFFFF
-    const cz = (Math.floor(z / this.cellSize) + 32768) & 0xFFFF
-    return (cx << 16) | cz
-  }
-
-  /**
-   * 清空网格 (每一帧开始时调用)
-   */
   clear() {
-    this.grid.clear()
-  }
-
-  /**
-   * 将实体插入网格
-   */
-  insert(entity: Entity) {
-    const key = this.makeKey(entity.position.x, entity.position.z)
-    let cell = this.grid.get(key)
-    if (!cell) {
-      cell = []
-      this.grid.set(key, cell)
+    this.l1Blackboard.fill(0)
+    this.l2Blackboard.fill(0)
+    this.totalFriendly = 0
+    this.totalEnemy = 0
+    for (let i = 0; i < this.l1Cells.length; i++) {
+      this.l1Cells[i].length = 0 
     }
-    cell.push(entity)
   }
 
-  /**
-   * 查询某个位置周边的实体 (当前格子 + 周围所有受影响的格子)
-   */
-  query(x: number, z: number, range: number): Entity[] {
-    const results: Entity[] = []
-    
-    // 计算查询范围覆盖的所有格子索引
-    const startX = Math.floor((x - range) / this.cellSize)
-    const endX = Math.floor((x + range) / this.cellSize)
-    const startZ = Math.floor((z - range) / this.cellSize)
-    const endZ = Math.floor((z + range) / this.cellSize)
+  insert(entity: Entity) {
+    const x = entity.position.x + this.BOUNDS_X
+    const z = entity.position.z + this.BOUNDS_Z
 
-    for (let ix = startX; ix <= endX; ix++) {
-      for (let iz = startZ; iz <= endZ; iz++) {
-        // 复用 makeKey 的逻辑，但这里直接手动合并索引以获得极致性能
-        const key = ((ix + 32768) << 16) | (iz + 32768)
-        const cell = this.grid.get(key)
-        if (cell) {
-          results.push(...cell)
+    if (x < 0 || x >= this.MAP_SIZE_X || z < 0 || z >= this.MAP_SIZE_Z) return
+
+    const ix1 = Math.floor(x / this.L1_CELL_SIZE)
+    const iz1 = Math.floor(z / this.L1_CELL_SIZE)
+    const l1Idx = ix1 * this.L1_COUNT_Z + iz1
+
+    const ix2 = Math.floor(x / this.L2_CELL_SIZE)
+    const iz2 = Math.floor(z / this.L2_CELL_SIZE)
+    const l2Idx = ix2 * this.L2_COUNT_Z + iz2
+
+    // 映射阵营到位运算计数
+    // 高16位：Friendly (player/ally)
+    // 低16位：Enemy
+    const isFriendly = entity.type === 'player' || entity.type === 'ally'
+    if (isFriendly) {
+      this.totalFriendly++
+      this.l1Blackboard[l1Idx] += 0x00010000
+      this.l2Blackboard[l2Idx] += 0x00010000
+    } else if (entity.type === 'enemy') {
+      this.totalEnemy++
+      this.l1Blackboard[l1Idx] += 0x00000001
+      this.l2Blackboard[l2Idx] += 0x00000001
+    }
+
+    if (GAME_CONFIG.DEBUG && entity.type === 'player') {
+      console.log(`[SpatialHash] Player @(${entity.position.x.toFixed(1)}, ${entity.position.z.toFixed(1)}) -> L1Idx:${l1Idx}, totalFriendly:${this.totalFriendly}`);
+    }
+
+    this.l1Cells[l1Idx].push(entity)
+  }
+
+  query(x: number, z: number, range: number, targetSide?: 'friendly' | 'enemy', out?: Entity[]): Entity[] {
+    const results = out || []
+    if (out) results.length = 0
+    
+    const worldX = x + this.BOUNDS_X
+    const worldZ = z + this.BOUNDS_Z
+
+    const startX = Math.max(0, worldX - range)
+    const endX = Math.min(this.MAP_SIZE_X - 0.01, worldX + range)
+    const startZ = Math.max(0, worldZ - range)
+    const endZ = Math.min(this.MAP_SIZE_Z - 0.01, worldZ + range)
+
+    const sX2 = Math.floor(startX / this.L2_CELL_SIZE)
+    const eX2 = Math.floor(endX / this.L2_CELL_SIZE)
+    const sZ2 = Math.floor(startZ / this.L2_CELL_SIZE)
+    const eZ2 = Math.floor(endZ / this.L2_CELL_SIZE)
+
+    if (GAME_CONFIG.DEBUG && targetSide === 'friendly' && Math.random() < 0.01) {
+      console.log(`[SpatialHash] Querying friendly in range ${range} at (${x.toFixed(1)}, ${z.toFixed(1)}), totalFriendly: ${this.totalFriendly}`);
+    }
+
+    for (let ix2 = sX2; ix2 <= eX2; ix2++) {
+      for (let iz2 = sZ2; iz2 <= eZ2; iz2++) {
+        const l2Idx = Math.floor(ix2 * this.L2_COUNT_Z + iz2)
+        const l2Val = this.l2Blackboard[l2Idx]
+
+        if (l2Val === 0) continue
+        // 剪枝逻辑
+        if (targetSide === 'friendly' && (l2Val & 0xFFFF0000) === 0) continue
+        if (targetSide === 'enemy' && (l2Val & 0x0000FFFF) === 0) continue
+
+        const sX1 = Math.max(Math.floor(startX / this.L1_CELL_SIZE), ix2 * 5)
+        const eX1 = Math.min(Math.floor(endX / this.L1_CELL_SIZE), (ix2 + 1) * 5 - 1)
+        const sZ1 = Math.max(Math.floor(startZ / this.L1_CELL_SIZE), iz2 * 5)
+        const eZ1 = Math.min(Math.floor(endZ / this.L1_CELL_SIZE), (iz2 + 1) * 5 - 1)
+
+        for (let ix1 = sX1; ix1 <= eX1; ix1++) {
+          for (let iz1 = sZ1; iz1 <= eZ1; iz1++) {
+            const l1Idx = ix1 * this.L1_COUNT_Z + iz1
+            const l1Val = this.l1Blackboard[l1Idx]
+
+            if (l1Val === 0) continue
+            if (targetSide === 'friendly' && (l1Val & 0xFFFF0000) === 0) continue
+            if (targetSide === 'enemy' && (l1Val & 0x0000FFFF) === 0) continue
+
+            const cell = this.l1Cells[l1Idx]
+            for (let i = 0; i < cell.length; i++) {
+              const e = cell[i]
+              if (!targetSide) {
+                results.push(e)
+              } else {
+                const isEFriendly = e.type === 'player' || e.type === 'ally'
+                if (targetSide === 'friendly' && isEFriendly) results.push(e)
+                else if (targetSide === 'enemy' && !isEFriendly) results.push(e)
+              }
+            }
+          }
         }
       }
     }
+
     return results
   }
 }
 
-// 导出单例，使用配置中的网格大小
-export const spatialHash = new SpatialHash(GAME_CONFIG.VISUAL.GRID_SIZE)
+export const spatialHash = new SpatialHash()

@@ -16,6 +16,7 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
     health: { current: 10000, max: 10000 },
     facingFlip: false,
     visualFlip: 1,
+    animOffset: Math.random() * 10, // 新增：随机动画偏移量
     attack: { 
       power: combat.power, 
       speed: combat.speed, 
@@ -31,7 +32,8 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
       speedMult: 1, 
       luck: 10,
       baseSpeed: unitDef.movement.speed,
-      radius: unitDef.radius ?? (unitDef.scale * 0.35) // 降级方案：基于视觉比例自动计算
+      radius: unitDef.radius ?? (unitDef.scale * 0.35), // 降级方案：基于视觉比例自动计算
+      mass: 100 // 主角质量极大，可以撞开别人
     } 
   })
 }
