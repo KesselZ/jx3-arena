@@ -110,6 +110,8 @@ function StatsPanel() {
               <div className="flex justify-between"><span>├ AI</span><span className={getMetricColor(perfMetrics.ai)}>{perfMetrics.ai.toFixed(2)}ms</span></div>
               <div className="flex justify-between"><span>├ Combat</span><span className={getMetricColor(perfMetrics.combat)}>{perfMetrics.combat.toFixed(2)}ms</span></div>
               <div className="flex justify-between"><span>├ Projectile</span><span className={getMetricColor(perfMetrics.projectile)}>{perfMetrics.projectile.toFixed(2)}ms</span></div>
+              <div className="flex justify-between text-[7px] opacity-60"><span>│  ├ Move</span><span>{perfMetrics.projMove?.toFixed(2)}ms</span></div>
+              <div className="flex justify-between text-[7px] opacity-60"><span>│  └ Hit</span><span>{perfMetrics.projHit?.toFixed(2)}ms</span></div>
               <div className="flex justify-between"><span>├ Movement</span><span className={getMetricColor(perfMetrics.movement)}>{perfMetrics.movement.toFixed(2)}ms</span></div>
               <div className="flex justify-between"><span>└ Collision</span><span className={getMetricColor(perfMetrics.collision)}>{perfMetrics.collision.toFixed(2)}ms</span></div>
             </div>

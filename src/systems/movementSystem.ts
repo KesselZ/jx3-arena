@@ -42,11 +42,9 @@ export const movementSystem = (delta: number) => {
         entity.lastMoveZ = intentSpeedSq > 0.01 ? entity.moveIntent.z : entity.velocity.z;
       }
 
-      // 边界限制 (空气墙)
-      if (entity.type === 'player') {
-        entity.position.x = Math.max(-bx, Math.min(bx, entity.position.x))
-        entity.position.z = Math.max(-bz, Math.min(bz, entity.position.z))
-      }
+      // 边界限制 (空气墙) - 对所有战斗单位生效
+      entity.position.x = Math.max(-bx, Math.min(bx, entity.position.x))
+      entity.position.z = Math.max(-bz, Math.min(bz, entity.position.z))
     }
   }
 }

@@ -11,9 +11,12 @@ const _forward = new THREE.Vector3(0, 0, 1)
 /**
  * ProjectileSystem: 弹道逻辑大脑
  * 职责：处理所有弹道的位移、追踪、碰撞检测和穿透逻辑
+ * 返回细分耗时数据
  */
 export function projectileSystem(dt: number) {
   const projectiles = queries.projectiles.entities
+  let moveTime = 0
+  let hitTime = 0
 
   for (let i = 0; i < projectiles.length; i++) {
     const entity = projectiles[i]
@@ -25,6 +28,8 @@ export function projectileSystem(dt: number) {
       world.remove(entity)
       continue
     }
+
+    const tStart = performance.now()
 
     // 2. 追踪逻辑 (使用 entityMap 优化查找性能 O(1))
     if (p.targetId) {
@@ -50,7 +55,7 @@ export function projectileSystem(dt: number) {
     entity.position.y += entity.velocity.y * dt
     entity.position.z += entity.velocity.z * dt
 
-    // 4. 更新逻辑朝向 (让视觉层可以“抄”这个旋转)
+    // 4. 更新逻辑朝向
     _v1.set(entity.velocity.x, entity.velocity.y, entity.velocity.z).normalize()
     _quat.setFromUnitVectors(_forward, _v1)
     if (!entity.quaternion) {
@@ -62,43 +67,49 @@ export function projectileSystem(dt: number) {
       entity.quaternion.w = _quat.w
     }
 
-    // 5. 碰撞检测 (使用 spatialHash)
-    const nearby = spatialHash.query(entity.position.x, entity.position.z, 1.0)
-    
-    // 获取主人阵营，用于友伤检测
-    const owner = entityMap.get(p.ownerId)
-    const isOwnerFriendly = owner ? (owner.type === 'player' || owner.type === 'ally') : false
+    const tMid = performance.now()
+    moveTime += (tMid - tStart)
 
-    for (let j = 0; j < nearby.length; j++) {
-      const target = nearby[j]
+    // 5. 碰撞检测 (恢复：每 2 帧检测一次，错开执行)
+    const shouldCheck = (world.entities.length + i) % 2 === 0
+
+    if (shouldCheck) {
+      // 优化：减小查询半径，从 1.0 降至 0.7 (略大于判定半径 0.6)
+      const nearby = spatialHash.query(entity.position.x, entity.position.z, 0.7)
       
-      // 1. 排除自己、已击中的目标、非战斗人员
-      if (target.id === p.ownerId || p.hitEntities.has(target.id)) continue
-      if (target.dead || !target.health) continue
+      // 优化：将 owner 阵营判断提取到循环外（已在 i 循环内）
+      const owner = entityMap.get(p.ownerId)
+      const isOwnerFriendly = owner ? (owner.type === 'player' || owner.type === 'ally') : false
 
-      // 2. 阵营检测 (不伤害队友)
-      const isTargetFriendly = target.type === 'player' || target.type === 'ally'
-      if (isOwnerFriendly === isTargetFriendly) continue // 同阵营跳过
+      for (let j = 0; j < nearby.length; j++) {
+        const target = nearby[j]
+        
+        if (target.id === p.ownerId || p.hitEntities.has(target.id)) continue
+        if (target.dead || !target.health) continue
 
-      // 3. 距离检测 (0.6米视为击中)
-      const distSq = (target.position.x - entity.position.x) ** 2 + 
-                     (target.position.z - entity.position.z) ** 2
-      
-      if (distSq < 0.6 * 0.6) {
-        // 命中逻辑
-        applyProjectileHit(entity, target)
+        const isTargetFriendly = target.type === 'player' || target.type === 'ally'
+        if (isOwnerFriendly === isTargetFriendly) continue 
+
+        const distSq = (target.position.x - entity.position.x) ** 2 + 
+                       (target.position.z - entity.position.z) ** 2
         
-        // 穿透逻辑
-        p.pierce--
-        p.hitEntities.add(target.id)
-        
-        if (p.pierce < 0) {
-          world.remove(entity)
-          break // 弹道销毁，停止检测其他目标
+        if (distSq < 0.6 * 0.6) {
+          applyProjectileHit(entity, target)
+          
+          p.pierce--
+          p.hitEntities.add(target.id)
+          
+          if (p.pierce < 0) {
+            world.remove(entity)
+            break 
+          }
         }
       }
     }
+    hitTime += (performance.now() - tMid)
   }
+
+  return { moveTime, hitTime }
 }
 
 /**

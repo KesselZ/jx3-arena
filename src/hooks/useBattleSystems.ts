@@ -70,8 +70,10 @@ export function useBattleSystems(keys: any, currentWave: number) {
 
     // 6. Projectile System
     t = performance.now()
-    projectileSystem(delta) 
+    const projMetrics = projectileSystem(delta) 
     perfMetrics.current.projectile = performance.now() - t
+    perfMetrics.current.projMove = projMetrics.moveTime
+    perfMetrics.current.projHit = projMetrics.hitTime
 
     // 7. Movement System
     t = performance.now()

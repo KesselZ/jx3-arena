@@ -79,7 +79,7 @@ export function collisionSystem() {
             entity.velocity.x -= impulse * nx * weightA;
             entity.velocity.z -= impulse * nz * weightA;
             other.velocity.x += impulse * nx * weightB;
-            other.velocity.z += nz * pushPower * weightB; // 注意：这里也需要考虑质量
+            other.velocity.z += impulse * nz * weightB; 
         }
       }
     }
