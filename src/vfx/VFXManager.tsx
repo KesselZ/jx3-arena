@@ -1,6 +1,6 @@
 import { useEntities } from 'miniplex-react'
-import { queries, world } from '../engine/ecs'
-import { SlashingVFX, ArrowVFX } from './VFXLibrary'
+import { queries } from '../engine/ecs'
+import { SlashingVFX, ArrowVFX, AirSwordVFX } from './VFXLibrary'
 
 /**
  * VFXManager: 特效指挥中心
@@ -14,6 +14,7 @@ export function VFXManager() {
       {/* 自动分组并分发给对应的实例化渲染器 */}
       <SlashingVFX entities={entities.filter(e => e.effect?.type === 'slash')} />
       <ArrowVFX entities={entities.filter(e => e.effect?.type === 'arrow')} />
+      <AirSwordVFX entities={entities.filter(e => e.effect?.type === 'air_sword')} />
     </>
   )
 }

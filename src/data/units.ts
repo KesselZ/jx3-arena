@@ -18,7 +18,7 @@ export interface UnitConfig {
   facing?: 'left' | 'right';
   combat: {
     attackType: 'melee' | 'ranged';
-    vfxType: 'slash' | 'arrow' | 'burst';
+    vfxType: 'slash' | 'arrow' | 'burst' | 'air_sword';
     range: number;
     speed: number; // 攻击速度 (每秒攻击次数)
     power: number; // 攻击力
@@ -40,12 +40,14 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: true, description: '妙手空空，笔墨定乾坤。',
     scale: 1.5,
     combat: {
-      attackType: 'melee',
-      vfxType: 'slash',
-      range: 0.3,
+      attackType: 'ranged',
+      vfxType: 'air_sword',
+      range: 12.0,
       speed: 1.5,
-      power: 15,
-      knockback: 100
+      power: 20,
+      knockback: 100,
+      burst: 3,
+      burstInterval: 0.1
     },
     movement: {
       speed: 6.0

@@ -11,6 +11,7 @@ import * as THREE from 'three'
 import { useMemo } from 'react'
 import { VFXGroup } from './VFXBase'
 import { GAME_CONFIG } from '../game/config'
+import { Entity } from '../engine/ecs'
 
 const _color = new THREE.Color()
 const _euler = new THREE.Euler()
@@ -104,6 +105,44 @@ export function ArrowVFX({ entities }: { entities: any[] }) {
         const opacity = (1 - progress) * 2
         _color.set("#ffaa00").multiplyScalar(opacity);
         (instance as any)._color = _color
+      }}
+    />
+  )
+}
+
+/**
+ * 飞剑特效 (AirSwordVFX)
+ * 逻辑实体驱动：直接同步实体的物理坐标和旋转
+ */
+export function AirSwordVFX({ entities }: { entities: Entity[] }) {
+  return (
+    <VFXGroup
+      entities={entities}
+      limit={500}
+      geometry={<boxGeometry args={[0.1, 0.1, 1.2]} />}
+      material={<meshBasicMaterial transparent blending={THREE.AdditiveBlending} depthWrite={false} />}
+      onUpdate={(instance, progress, entity) => {
+        // 1. 同步逻辑层坐标
+        instance.position.set(entity.position.x, entity.position.y, entity.position.z)
+        
+        // 2. 同步逻辑层旋转
+        if (entity.quaternion) {
+          instance.quaternion.set(
+            entity.quaternion.x,
+            entity.quaternion.y,
+            entity.quaternion.z,
+            entity.quaternion.w
+          )
+        }
+
+        // 3. 视觉增强：剑身微颤和缩放动画
+        const pulse = Math.sin(Date.now() * 0.02) * 0.1
+        instance.scale.set(1 + pulse, 1 + pulse, 1.2)
+
+        // 4. 颜色与透明度 (根据寿命衰减)
+        const lifeP = entity.projectile ? entity.projectile.lifeTime / 2.0 : 1.0 // 假设寿命2秒
+        _color.set("#00ffff").multiplyScalar(Math.min(1, lifeP * 2))
+        ;(instance as any)._color = _color
       }}
     />
   )

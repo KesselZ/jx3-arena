@@ -5,6 +5,7 @@ import { spawnSystem } from '../systems/spawnSystem'
 import { aiSystem } from '../systems/aiSystem'
 import { movementSystem } from '../systems/movementSystem'
 import { combatSystem } from '../systems/combatSystem'
+import { projectileSystem } from '../systems/projectileSystem'
 import { collisionSystem } from '../systems/collisionSystem'
 import { world, queries } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
@@ -37,6 +38,7 @@ export function useBattleSystems(keys: any, currentWave: number) {
 
     aiSystem(delta)
     combatSystem(delta) 
+    projectileSystem(delta) // 新增：弹道逻辑系统
     movementSystem(delta)
     // 消融实验结束：重新开启碰撞系统，观察 SpatialHashV2 的性能表现
     collisionSystem()

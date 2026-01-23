@@ -1,0 +1,125 @@
+import * as THREE from 'three'
+import { world, queries, Entity } from '../engine/ecs'
+import { spatialHash } from '../engine/spatialHash'
+import { GAME_CONFIG } from '../game/config'
+
+const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _quat = new THREE.Quaternion()
+const _forward = new THREE.Vector3(0, 0, 1)
+
+/**
+ * ProjectileSystem: 弹道逻辑大脑
+ * 职责：处理所有弹道的位移、追踪、碰撞检测和穿透逻辑
+ */
+export function projectileSystem(dt: number) {
+  const projectiles = queries.projectiles.entities
+
+  for (let i = 0; i < projectiles.length; i++) {
+    const entity = projectiles[i]
+    const p = entity.projectile!
+
+    // 1. 生命周期管理
+    p.lifeTime -= dt
+    if (p.lifeTime <= 0) {
+      world.remove(entity)
+      continue
+    }
+
+    // 2. 追踪逻辑 (可选)
+    if (p.targetId) {
+      const target = world.entities.find(e => e.id === p.targetId && !e.dead)
+      if (target) {
+        // 简单的转向逻辑：向目标位置插值
+        _v1.set(target.position.x, target.position.y + 1, target.position.z)
+        _v2.set(entity.position.x, entity.position.y, entity.position.z)
+        const dirToTarget = _v1.sub(_v2).normalize()
+        
+        // 将当前速度向目标方向偏移 (追踪力度)
+        const currentDir = _v2.set(entity.velocity.x, entity.velocity.y, entity.velocity.z).normalize()
+        currentDir.lerp(dirToTarget, 0.1) // 0.1 是追踪灵敏度
+        
+        entity.velocity.x = currentDir.x * p.speed
+        entity.velocity.y = currentDir.y * p.speed
+        entity.velocity.z = currentDir.z * p.speed
+      }
+    }
+
+    // 3. 更新物理位移
+    entity.position.x += entity.velocity.x * dt
+    entity.position.y += entity.velocity.y * dt
+    entity.position.z += entity.velocity.z * dt
+
+    // 4. 更新逻辑朝向 (让视觉层可以“抄”这个旋转)
+    _v1.set(entity.velocity.x, entity.velocity.y, entity.velocity.z).normalize()
+    _quat.setFromUnitVectors(_forward, _v1)
+    if (!entity.quaternion) {
+      entity.quaternion = { x: _quat.x, y: _quat.y, z: _quat.z, w: _quat.w }
+    } else {
+      entity.quaternion.x = _quat.x
+      entity.quaternion.y = _quat.y
+      entity.quaternion.z = _quat.z
+      entity.quaternion.w = _quat.w
+    }
+
+    // 5. 碰撞检测 (使用 spatialHash)
+    const nearby = spatialHash.query(entity.position.x, entity.position.z, 1.0)
+    
+    for (let j = 0; j < nearby.length; j++) {
+      const target = nearby[j]
+      
+      // 排除自己、已击中的目标、非战斗人员
+      if (target.id === p.ownerId || p.hitEntities.has(target.id)) continue
+      
+      if (target.dead || !target.health) continue
+
+      // 距离检测 (0.6米视为击中)
+      const distSq = (target.position.x - entity.position.x) ** 2 + 
+                     (target.position.z - entity.position.z) ** 2
+      
+      if (distSq < 0.6 * 0.6) {
+        // 命中逻辑
+        applyProjectileHit(entity, target)
+        
+        // 穿透逻辑
+        p.pierce--
+        p.hitEntities.add(target.id)
+        
+        if (p.pierce < 0) {
+          world.remove(entity)
+          break // 弹道销毁，停止检测其他目标
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 应用弹道命中效果
+ */
+function applyProjectileHit(projectile: Entity, target: Entity) {
+  const p = projectile.projectile!
+  
+  // 1. 扣血
+  if (target.health) {
+    target.health.current -= p.damage
+    target.health.lastHitTime = performance.now() / 1000
+    
+    if (target.health.current <= 0 && !target.dead) {
+      target.dead = true
+      target.deathTime = performance.now() / 1000
+      target.deathDir = { 
+        x: projectile.velocity.x * 0.2, 
+        y: 0.5, 
+        z: projectile.velocity.z * 0.2 
+      }
+    }
+  }
+
+  // 2. 击退 (冲量)
+  if (target.velocity) {
+    const knockbackMult = 2.0
+    target.velocity.x += (projectile.velocity.x / p.speed) * knockbackMult
+    target.velocity.z += (projectile.velocity.z / p.speed) * knockbackMult
+  }
+}
