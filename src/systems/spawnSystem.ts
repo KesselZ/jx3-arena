@@ -29,8 +29,8 @@ export const spawnSystem = (
     // 计算刷怪位置：屏幕边缘
     const spawnPos = getRandomEdgePosition()
     
-    // 创建实体
-    createNPC(randomUnitId, 'enemy', spawnPos.x, spawnPos.z)
+    // 创建实体 (带有延迟预警)
+    createNPC(randomUnitId, 'enemy', spawnPos.x, spawnPos.z, GAME_CONFIG.BATTLE.SPAWN_WARNING_DURATION)
     totalSpawnedInWave++
   }
 }

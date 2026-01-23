@@ -80,7 +80,10 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
       let hitScale = 1.0
       let squash = 0 // 初始化 squash 变量，确保在所有分支中都可用
 
-      if (isDead) {
+      // 如果还在出生预警期间，将缩放设为 0 (隐藏模型)，并跳过动画逻辑
+      if (entity.spawnTimer !== undefined && entity.spawnTimer > 0) {
+        hitScale = 0
+      } else if (isDead) {
         // 1. 死亡动画逻辑
         const p = Math.min(1, timeSinceDeath / deathDuration)
         const jumpHeight = (p * (1 - p) * 4) * GAME_CONFIG.BATTLE.DEATH_JUMP_HEIGHT 

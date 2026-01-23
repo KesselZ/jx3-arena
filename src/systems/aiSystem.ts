@@ -20,7 +20,7 @@ export const aiSystem = (delta: number) => {
 
   for (let i = 0; i < entities.length; i++) {
     const entity = entities[i]
-    if (!entity.ai || entity.ai.behavior !== 'chase' || entity.dead) continue
+    if (!entity.ai || entity.ai.behavior !== 'chase' || entity.dead || (entity.spawnTimer !== undefined && entity.spawnTimer > 0)) continue
 
     // --- 核心优化：基于时间的错峰决策逻辑 ---
     // 我们利用实体 ID 的哈希值（或简单取长度/字符码）来产生一个持久的偏移量

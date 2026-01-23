@@ -104,6 +104,8 @@ export type Entity = {
   visualFlip?: number;  // 新增：平滑渲染使用的翻转比例 (-1 到 1)
   lastMoveX?: number;   // 新增：记录最后一次移动的世界坐标 X
   lastMoveZ?: number;   // 新增：记录最后一次移动的世界坐标 Z
+  
+  spawnTimer?: number;  // 新增：出生预警倒计时 (秒)
 }
 
 // 创建全局唯一的 ECS 世界

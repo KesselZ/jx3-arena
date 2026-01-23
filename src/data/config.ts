@@ -24,6 +24,7 @@ export const GAME_CONFIG = {
     ATTACK_LUNGE_FORCE: 0.5,   // 攻击冲刺力度
     MELEE_VFX_PUSH: 0.8,       // 近战特效身前偏移
     MAX_INSTANCES_PER_TYPE: 1000, // 每种兵种的最大实例数 (同屏上限)
+    SPAWN_WARNING_DURATION: 1.0, // 新增：出生预警时长 (秒)
   },
 
   // 物理模拟相关

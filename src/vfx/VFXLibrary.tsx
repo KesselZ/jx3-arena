@@ -8,7 +8,9 @@
  */
 
 import * as THREE from 'three'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Instances } from '@react-three/drei'
 import { VFXGroup } from './VFXBase'
 import { GAME_CONFIG } from '../data/config'
 import { Entity } from '../engine/ecs'
@@ -19,6 +21,7 @@ const _vStart = new THREE.Vector3()
 const _vEnd = new THREE.Vector3()
 const _m4 = new THREE.Matrix4()
 const _quat = new THREE.Quaternion()
+const _tempObj = new THREE.Object3D()
 
 /**
  * 刀光特效 (SlashingVFX)
@@ -152,5 +155,82 @@ export function AirSwordVFX({ entities }: { entities: Entity[] }) {
         ;(instance as any)._color = _color
       }}
     />
+  )
+}
+
+/**
+ * 出生预警特效 (SpawnWarningVFX)
+ * 职责：在地面显示一个闪烁的叉叉，指示即将生成的单位
+ */
+export function SpawnWarningVFX({ entities }: { entities: Entity[] }) {
+  const meshRef = useRef<any>(null)
+
+  // 1. 动态生成一个真正的、带统一黑边的 X 形状贴图
+  const crossTexture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const ctx = canvas.getContext('2d')!
+    
+    ctx.clearRect(0, 0, 128, 128)
+    
+    // 绘制路径定义
+    const drawX = (width: number, color: string) => {
+      ctx.strokeStyle = color
+      ctx.lineWidth = width
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      // 调整坐标，稍微往里缩一点点，防止加粗后切边
+      const margin = 20
+      ctx.moveTo(margin, margin); ctx.lineTo(128 - margin, 128 - margin)
+      ctx.moveTo(128 - margin, margin); ctx.lineTo(margin, 128 - margin)
+      ctx.stroke()
+    }
+
+    // 大胆加粗：黑边设为 48，内部填充设为 24
+    drawX(48, '#000000')
+    drawX(24, '#ffffff')
+    
+    const tex = new THREE.CanvasTexture(canvas)
+    return tex
+  }, [])
+
+  useFrame(() => {
+    if (!meshRef.current) return
+    const count = entities.length
+    const now = performance.now() / 1000
+
+    for (let i = 0; i < count; i++) {
+      const entity = entities[i]
+      
+      // 2. 优化闪烁逻辑：固定 8Hz 的干净切换，并加入随机相位偏移打破同步
+      const freq = 8.0 
+      const phase = (entity.animOffset || 0) * 10.0 // 利用已有随机值，零额外开销
+      const isVisible = Math.sin((now + phase) * Math.PI * freq) > 0
+      
+      _tempObj.position.set(entity.position.x, 0.05, entity.position.z)
+      _euler.set(-Math.PI / 2, 0, 0) // 贴图本身已经是 X，不需要再旋转 45 度
+      _tempObj.quaternion.setFromEuler(_euler)
+      
+      // 如果处于“消失”帧，将缩放设为 0，实现彻底消失
+      const s = isVisible ? 1 : 0
+      _tempObj.scale.set(s, s, s)
+      _tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+      
+      _color.set(entity.type === 'enemy' ? "#ff2222" : "#22ff22")
+      meshRef.current.setColorAt(i, _color)
+    }
+
+    meshRef.current.count = count
+    meshRef.current.instanceMatrix.needsUpdate = true
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true
+  })
+
+  return (
+    <Instances ref={meshRef} limit={1000} frustumCulled={false}>
+      <planeGeometry args={[0.8, 0.8]} />
+      <meshBasicMaterial map={crossTexture} transparent side={THREE.DoubleSide} depthWrite={false} />
+    </Instances>
   )
 }

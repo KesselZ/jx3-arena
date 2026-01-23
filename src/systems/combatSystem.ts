@@ -10,7 +10,7 @@ export const combatSystem = (delta: number) => {
   const currentTime = performance.now() / 1000;
   
   for (const attacker of world.entities) {
-    if (!attacker.attack || attacker.dead) continue;
+    if (!attacker.attack || attacker.dead || (attacker.spawnTimer !== undefined && attacker.spawnTimer > 0)) continue;
 
     let canAttack = false;
     const isBursting = (attacker.burstRemaining || 0) > 0;

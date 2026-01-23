@@ -15,7 +15,7 @@ export function collisionSystem() {
   // 处理碰撞挤压
   for (let i = 0; i < combatants.length; i++) {
     const entity = combatants[i]
-    if (!entity.stats || entity.dead) continue
+    if (!entity.stats || entity.dead || (entity.spawnTimer !== undefined && entity.spawnTimer > 0)) continue
     
     const x = entity.position.x
     const z = entity.position.z

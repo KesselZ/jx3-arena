@@ -6,7 +6,8 @@ export const createNPC = (
   unitId: string, 
   type: 'enemy' | 'ally', 
   x: number, 
-  z: number
+  z: number,
+  delay: number = 0 // 新增：延迟生成时间 (秒)
 ): Entity => {
   const isEnemy = type === 'enemy';
   
@@ -24,6 +25,7 @@ export const createNPC = (
     health: { current: 50, max: 50 },
     facingFlip: false,
     visualFlip: 1,
+    spawnTimer: delay, // 设置延迟
     // 赋予 AI 组件
     ai: { 
       behavior: 'chase', // 默认都开启追逐逻辑

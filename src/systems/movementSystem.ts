@@ -6,6 +6,15 @@ export const movementSystem = (delta: number) => {
   const { x: bx, z: bz } = GAME_CONFIG.BATTLE.SCREEN_BOUNDS
 
   for (const entity of world.entities) {
+    // 处理出生预警倒计时
+    if (entity.spawnTimer !== undefined && entity.spawnTimer > 0) {
+      entity.spawnTimer -= delta;
+      if (entity.spawnTimer <= 0) {
+        entity.spawnTimer = undefined; // 倒计时结束，正式激活
+      }
+      continue; // 预警期间不参与任何移动和物理逻辑
+    }
+
     if (entity.position && entity.velocity && entity.moveIntent) {
       // 只有特定类型的实体（玩家、敌人、盟友）参与常规移动系统的重力、阻尼和边界限制
       const isCombatant = entity.type === 'player' || entity.type === 'enemy' || entity.type === 'ally';
