@@ -106,6 +106,14 @@ export type Entity = {
   lastMoveZ?: number;   // 新增：记录最后一次移动的世界坐标 Z
   
   spawnTimer?: number;  // 新增：出生预警倒计时 (秒)
+  
+  // 伤害飘字组件
+  damageDigit?: {
+    value: number;      // 0-9 的单个数字
+    offset: number;     // 水平偏移 (用于多位数排版)
+    totalWidth: number; // 总宽度 (用于居中)
+    startTime: number;  // 产生时间
+  };
 }
 
 // 创建全局唯一的 ECS 世界
@@ -134,5 +142,33 @@ export const queries = {
   combatants: world.with('type', 'health', 'position').without('dead'),
   effects: world.with('effect'),
   projectiles: world.with('projectile', 'position', 'velocity'),
+  damageDigits: world.with('damageDigit', 'position'),
   movable: world.with('position', 'velocity').without('dead')
+}
+
+/**
+ * 辅助函数：生成伤害飘字
+ * 职责：将伤害数值拆分为单个数字实体，实现高性能实例化排版
+ */
+export function spawnDamageText(value: number, position: Position) {
+  const str = Math.floor(value).toString()
+  const totalWidth = str.length
+  const now = performance.now() / 1000
+
+  for (let i = 0; i < str.length; i++) {
+    world.add({
+      id: `damage-${now}-${Math.random()}`,
+      type: 'effect',
+      position: { ...position },
+      velocity: { x: 0, y: 0, z: 0 },
+      health: { current: 1, max: 1 },
+      lifetime: { remaining: 0.8 },
+      damageDigit: {
+        value: parseInt(str[i]),
+        offset: i,
+        totalWidth: totalWidth,
+        startTime: now
+      }
+    })
+  }
 }

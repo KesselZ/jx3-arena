@@ -331,6 +331,30 @@ export function BattleWorld() {
   })
 
   useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      // 只有左键(0)或右键(2)按下时触发
+      if (e.button === 0 || e.button === 2) {
+        document.body.classList.add('is-grabbing')
+      }
+    }
+    const handleMouseUp = () => {
+      document.body.classList.remove('is-grabbing')
+    }
+
+    window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mouseup', handleMouseUp)
+    // 额外处理：如果鼠标移出窗口也重置状态
+    window.addEventListener('blur', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('blur', handleMouseUp)
+      document.body.classList.remove('is-grabbing')
+    }
+  }, [])
+
+  useEffect(() => {
     if (!selectedCharacter) return
     const initGame = async () => {
       await Assets.preloadAll();

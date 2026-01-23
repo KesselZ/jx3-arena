@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { world, Entity } from '../engine/ecs';
+import { world, Entity, spawnDamageText } from '../engine/ecs';
 import { findNearestHostile, findHero } from '../engine/targeting';
 import { UNITS } from '../data/units';
 
@@ -134,8 +134,12 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   }
 
   if (target.health) {
-    target.health.current -= attacker.attack!.power;
+    const damage = attacker.attack!.power;
+    target.health.current -= damage;
     target.health.lastHitTime = time;
+    
+    // 生成伤害飘字
+    spawnDamageText(damage, target.position);
 
     if (target.health.current <= 0) {
       target.health.current = 0;

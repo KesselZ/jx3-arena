@@ -1,6 +1,6 @@
 import { useEntities } from 'miniplex-react'
 import { queries, world } from '../engine/ecs'
-import { SlashingVFX, ArrowVFX, AirSwordVFX, SpawnWarningVFX } from './VFXLibrary'
+import { SlashingVFX, ArrowVFX, AirSwordVFX, SpawnWarningVFX, DamageTextVFX } from './VFXLibrary'
 
 /**
  * VFXManager: 特效指挥中心
@@ -8,6 +8,7 @@ import { SlashingVFX, ArrowVFX, AirSwordVFX, SpawnWarningVFX } from './VFXLibrar
  */
 export function VFXManager() {
   const { entities: effectEntities } = useEntities(queries.effects)
+  const { entities: damageEntities } = useEntities(queries.damageDigits)
   const { entities: allEntities } = useEntities(world)
 
   return (
@@ -16,6 +17,9 @@ export function VFXManager() {
       <SlashingVFX entities={effectEntities.filter(e => e.effect?.type === 'slash')} />
       <ArrowVFX entities={effectEntities.filter(e => e.effect?.type === 'arrow')} />
       <AirSwordVFX entities={effectEntities.filter(e => e.effect?.type === 'air_sword')} />
+      
+      {/* 伤害飘字渲染器 */}
+      <DamageTextVFX entities={damageEntities} />
       
       {/* 出生预警特效：监听所有带有 spawnTimer 的实体 */}
       <SpawnWarningVFX entities={allEntities.filter(e => e.spawnTimer !== undefined && e.spawnTimer > 0)} />

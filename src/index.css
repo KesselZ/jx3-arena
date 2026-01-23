@@ -14,6 +14,21 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* 专家级像素武侠指针 V10 - 抓取重构版 */
+    --cursor-MousePointer2: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%231A1A1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M2 2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h-2v2h-2v-2H8v-2H6v-2H4v-2H2V2zM14 12h4v2h2v4h-2v-2h-4v-4z M12 14h2v4h4v2h-2v-2h-4v-4zM18 18h4v4h-4z M20 20h4v4h-4z'/%3E%3C/g%3E%3Cpath fill='%23E0E0E0' d='M2 2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h-2v2h-2v-2H8v-2H6v-2H4v-2H2V2z'/%3E%3Cpath fill='%23FFFFFF' d='M2 2h2v2H2V2zM4 4h2v2H4V4zM6 6h2v2H6V6zM8 8h2v2H8V8zM10 10h2v2h-2v-2z'/%3E%3Cpath fill='%23D4AF37' d='M14 12h4v2h2v4h-2v-2h-4v-4z M12 14h2v4h4v2h-2v-2h-4v-4z'/%3E%3Cpath fill='%238B4513' d='M18 18h4v4h-4z M20 20h4v4h-4z'/%3E%3C/svg%3E") 2 2, auto;
+    
+    --cursor-Pointer: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%231A1A1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M10 2h4v10h-4V2zM8 12h2v2h2v-2h12v14h-2v2h-12v-2H8v-4H6v-6h2v-2z'/%3E%3C/g%3E%3Cpath fill='%23FFFFFF' d='M10 2h4v10h-4V2zM8 12h2v2h2v-2h12v14h-2v2h-12v-2H8v-4H6v-6h2v-2z'/%3E%3Cpath fill='%23E0E0E0' d='M12 14h10v10h-10v-10z M8 16h2v4H8v-4z'/%3E%3Cpath d='M14 15h8v1h-8z M14 19h8v1h-8z M14 23h8v1h-8z' fill='%231A1A1A'/%3E%3C/svg%3E") 12 2, pointer;
+
+    --cursor-Hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%231A1A1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M8 4h2v8h2V2h2v8h2V2h2v8h2V4h2v12h-2v2h-2v2H10v-2H8v-2H6V8h2V4z'/%3E%3C/g%3E%3Cpath fill='%23FFFFFF' d='M8 4h2v8h2V2h2v8h2V2h2v8h2V4h2v12h-2v2h-2v2H10v-2H8v-2H6V8h2V4z'/%3E%3C/path%3E%3Cpath fill='%23E0E0E0' d='M10 14h10v4H10v-4z'/%3E%3C/svg%3E") 12 12, pointer;
+
+    --cursor-Grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%231A1A1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M8 10h14v12H8V10z M6 13h10v5H6v-5z M14 15h2v3h-2v-3z M11 10h1v4h-1v-4z M15 10h1v4h-1v-4z M19 10h1v4h-1v-4z'/%3E%3C/g%3E%3Cpath fill='%23FFFFFF' d='M8 10h14v12H8V10z'/%3E%3Cpath fill='%23FFFFFF' d='M6 13h10v5H6v-5z M14 15h2v3h-2v-3z'/%3E%3Cpath fill='%23E0E0E0' d='M10 10h12v12H10V10z M6 16h10v2H6v-2z'/%3E%3Cpath d='M11 10h1v4h-1v-4z M15 10h1v4h-1v-4z M19 10h1v4h-1v-4z' fill='%231A1A1A'/%3E%3C/svg%3E") 12 12, grabbing;
+
+    --cursor-HelpCircle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%231A1A1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M6 6h16v12H6V6z M4 4h4v16H4V4z M20 4h4v16h-4V4z M10 10h8v2h-8v-2z M10 14h6v2h-6v-2z'/%3E%3C/g%3E%3Cpath fill='%23F5DEB3' d='M6 6h16v12H6V6z'/%3E%3Cpath fill='%23D4AF37' d='M4 4h4v16H4V4z M20 4h4v16h-4V4z'/%3E%3Cpath fill='%238B4513' d='M10 10h8v2h-8v-2z M10 14h6v2h-6v-2z'/%3E%3C/svg%3E") 12 12, help;
+
+    --cursor-Ban: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%231A1A1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M8 4h12v2h4v4h2v12h-2v4h-4v2H8v-2H4v-4H2V10h2V6h4V4z M10 8h8v2h2v12h-2v2h-8v-2h-2V10h2V8z M6 6h4v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2H6V6z'/%3E%3C/g%3E%3Cpath fill='%23FFFFFF' d='M8 4h12v2h4v4h2v12h-2v4h-4v2H8v-2H4v-4H2V10h2V6h4V4z'/%3E%3Cpath fill='%23FF4444' d='M8 4h12v2h4v4h2v12h-2v4h-4v2H8v-2H4v-4H2V10h2V6h4V4z M10 8h8v2h2v12h-2v2h-8v-2h-2V10h2V8z' fill-rule='evenodd'/%3E%3Cpath fill='%23FF4444' d='M6 6h4v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2H6V6z'/%3E%3C/svg%3E") 12 12, not-allowed;
+  }
+
   html, body, #root {
     width: 100%;
     height: 100%;
@@ -23,6 +38,14 @@
     background-color: #1a1a1a;
     /* 全局应用像素字体 */
     @apply font-pixel;
+    cursor: var(--cursor-MousePointer2);
+  }
+
+  /* 强制抓取状态：当按下鼠标时，全局所有元素强制切换为抓取图标 */
+  body.is-grabbing,
+  body.is-grabbing *,
+  body.is-grabbing canvas {
+    cursor: var(--cursor-Grab) !important;
   }
 
   canvas, img {
@@ -37,6 +60,7 @@
     @apply relative px-6 py-2 font-bold transition-all duration-75
            border-b-4 border-r-4 border-jx3-ink;
     border-radius: 2px;
+    cursor: var(--cursor-Pointer);
   }
 
   .pixel-btn:hover:not(:disabled) {
@@ -45,10 +69,26 @@
 
   .pixel-btn:active:not(:disabled) {
     @apply translate-x-0.5 translate-y-0.5 border-b-0 border-r-0;
+    cursor: var(--cursor-Grab);
   }
 
   .pixel-btn:disabled {
-    @apply opacity-50 cursor-not-allowed;
+    @apply opacity-50;
+    cursor: var(--cursor-Ban);
+  }
+
+  /* 针对普通链接和可点击元素的全局替换 */
+  a, button, [role="button"], .cursor-pointer {
+    cursor: var(--cursor-Pointer) !important;
+  }
+
+  /* 自动映射剩下的原生鼠标类型 */
+  *[style*="cursor: help"], .cursor-help {
+    cursor: var(--cursor-HelpCircle) !important;
+  }
+  
+  *[style*="cursor: not-allowed"], :disabled, .cursor-not-allowed {
+    cursor: var(--cursor-Ban) !important;
   }
 
   .pixel-btn-gold {

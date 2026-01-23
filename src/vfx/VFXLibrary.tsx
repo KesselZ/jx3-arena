@@ -234,3 +234,171 @@ export function SpawnWarningVFX({ entities }: { entities: Entity[] }) {
     </Instances>
   )
 }
+
+// 预留缓存向量，避免在循环中创建对象
+const _right = new THREE.Vector3()
+const _up = new THREE.Vector3()
+const _pos = new THREE.Vector3()
+
+/**
+ * 伤害飘字特效 (DamageTextVFX)
+ * 职责：高性能实例化渲染所有伤害数字
+ * 技术：1 Draw Call + Canvas 图集 + 相机空间对齐算法
+ */
+export function DamageTextVFX({ entities }: { entities: Entity[] }) {
+  const meshRef = useRef<any>(null)
+  const attrRef = useRef<any>(null)
+
+  // 1. 动态生成 0-9 数字图集 (武侠风：描边 + 渐变)
+  const atlasTexture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 512
+    canvas.height = 64
+    const ctx = canvas.getContext('2d')!
+    
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.font = 'bold 48px "Fusion Pixel Font", "DotGothic16", sans-serif'
+    
+    for (let i = 0; i < 10; i++) {
+      const x = i * 51.2 + 25.6
+      const y = 32
+      
+      // 绘制描边
+      ctx.strokeStyle = '#000000'
+      ctx.lineWidth = 8
+      ctx.strokeText(i.toString(), x, y)
+      
+      // 绘制主体 (金黄渐变)
+      const grad = ctx.createLinearGradient(x, y - 20, x, y + 20)
+      grad.addColorStop(0, '#fff4e0')
+      grad.addColorStop(1, '#d4af37')
+      ctx.fillStyle = grad
+      ctx.fillText(i.toString(), x, y)
+    }
+    
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.magFilter = THREE.NearestFilter
+    tex.minFilter = THREE.NearestFilter
+    return tex
+  }, [])
+
+  // 2. 准备实例属性数组 (存储每个实例对应的数字索引 0-9)
+  const digitIndices = useMemo(() => new Float32Array(2000), [])
+
+  useFrame((state) => {
+    if (!meshRef.current || !attrRef.current) return
+    const count = Math.min(entities.length, 2000)
+    const now = performance.now() / 1000
+
+    // 获取当前相机的右向量和上向量，用于对齐屏幕空间排版
+    _right.set(1, 0, 0).applyQuaternion(state.camera.quaternion)
+    _up.set(0, 1, 0).applyQuaternion(state.camera.quaternion)
+
+    for (let i = 0; i < count; i++) {
+      const e = entities[i]
+      const d = e.damageDigit!
+      const age = now - d.startTime
+      const duration = 0.8 // 飘字持续 0.8s
+      
+      if (age > duration) {
+        _tempObj.scale.set(0, 0, 0)
+      } else {
+        const p = age / duration
+        
+        // --- 爽感进化 1: 爆发式上升 ---
+        // 使用 pow(p, 0.3) 确保初速度极快，且 y 轴位移单调递增，绝不回落
+        const jump = Math.pow(p, 0.3) * 2.5 
+        const fadeOut = 1.0 - Math.pow(p, 2) // 平滑淡出
+        
+        // --- 爽感进化 2: 弹性弹出缩放 (Overshoot) ---
+        let s = 1.0
+        if (p < 0.15) {
+          s = (p / 0.15) * 1.4 // 快速放大到 1.4 倍
+        } else if (p < 0.3) {
+          s = 1.4 - ((p - 0.15) / 0.15) * 0.4 // 迅速回弹到 1.0 倍
+        } else {
+          s = 1.0
+        }
+        const finalScale = s * 0.5 * fadeOut
+        
+        // --- 爽感进化 3: 随机喷发感 ---
+        // 利用 startTime 作为种子，让每一跳伤害都有微小的随机左右偏移
+        const seed = d.startTime * 1000
+        const drift = (Math.sin(seed) * 0.5) * p 
+        
+        // 基于相机空间的排版算法
+        const spacing = 0.35 * finalScale
+        const hOffset = (d.offset - (d.totalWidth - 1) / 2) * spacing
+        
+        // 计算最终位置：受击点(胸部 0.8m) + 随机漂移 + 相机右偏 + 爆发上升
+        _pos.set(e.position.x, e.position.y + 0.8, e.position.z)
+        _pos.addScaledVector(_right, hOffset + drift)
+        _pos.addScaledVector(_up, jump)
+        
+        _tempObj.position.copy(_pos)
+        _tempObj.scale.set(finalScale, finalScale, finalScale)
+        _tempObj.quaternion.copy(state.camera.quaternion)
+        
+        digitIndices[i] = d.value
+      }
+      
+      _tempObj.updateMatrix()
+      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+    }
+
+    meshRef.current.count = count
+    meshRef.current.instanceMatrix.needsUpdate = true
+    attrRef.current.needsUpdate = true
+  })
+
+  return (
+    <Instances 
+      ref={meshRef} 
+      limit={2000} 
+      frustumCulled={false}
+      renderOrder={999}
+    >
+      <planeGeometry args={[1, 1]}>
+        <instancedBufferAttribute 
+          ref={attrRef}
+          attach="attributes-aDigitIndex" 
+          args={[digitIndices, 1]} 
+        />
+      </planeGeometry>
+      <meshBasicMaterial 
+        map={atlasTexture} 
+        transparent 
+        depthTest={false}
+        depthWrite={false}
+        onBeforeCompile={(shader) => {
+          shader.vertexShader = `
+            attribute float aDigitIndex;
+            varying float vDigitIndex;
+            ${shader.vertexShader}
+          `.replace(
+            '#include <begin_vertex>',
+            `
+            #include <begin_vertex>
+            vDigitIndex = aDigitIndex;
+            `
+          );
+          
+          shader.fragmentShader = `
+            varying float vDigitIndex;
+            ${shader.fragmentShader}
+          `.replace(
+            '#include <map_fragment>',
+            `
+            // 将 UV.x 限制在 0.1 范围内，并根据数字索引偏移
+            vec2 digitUv = vMapUv;
+            digitUv.x = (digitUv.x * 0.1) + (vDigitIndex * 0.1);
+            vec4 sampledColor = texture2D(map, digitUv);
+            diffuseColor *= sampledColor;
+            `
+          );
+        }}
+      />
+    </Instances>
+  )
+}

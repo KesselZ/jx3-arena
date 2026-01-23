@@ -113,7 +113,7 @@ export const UNITS: Record<string, UnitConfig> = {
       vfxType: 'slash',
       range: 0.3,
       speed: 1.2,
-      power: 8,
+      power: 18,
       knockback: 1.2
     },
     movement: {
@@ -130,7 +130,7 @@ export const UNITS: Record<string, UnitConfig> = {
       vfxType: 'arrow',
       range: 10.0,
       speed: 0.4, // 降低基础攻速，因为有连发
-      power: 5,
+      power: 15,
       knockback: 0.5,
       burst: 3, // 三连发
       burstInterval: 0.15, // 连发间隔 0.15s

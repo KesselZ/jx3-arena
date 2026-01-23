@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { world, queries, Entity, entityMap } from '../engine/ecs'
+import { world, queries, Entity, entityMap, spawnDamageText } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
 import { GAME_CONFIG } from '../data/config'
 
@@ -120,8 +120,12 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
   
   // 1. 扣血
   if (target.health) {
-    target.health.current -= p.damage
+    const damage = p.damage;
+    target.health.current -= damage
     target.health.lastHitTime = performance.now() / 1000
+    
+    // 生成伤害飘字
+    spawnDamageText(damage, target.position);
     
     if (target.health.current <= 0 && !target.dead) {
       target.dead = true
