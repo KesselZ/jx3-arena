@@ -68,9 +68,9 @@ export function useBattleSystems(keys: any, currentWave: number) {
     combatSystem(delta) 
     perfMetrics.current.combat = performance.now() - t
 
-    // 6. Projectile System (消融实验已结束，此处先注释掉)
+    // 6. Projectile System
     t = performance.now()
-    // projectileSystem(delta) 
+    projectileSystem(delta) 
     perfMetrics.current.projectile = performance.now() - t
 
     // 7. Movement System
