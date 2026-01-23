@@ -13,6 +13,7 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
     unitId, 
     position: { x, y: 0, z },
     velocity: { x: 0, y: 0, z: 0 },
+    moveIntent: { x: 0, y: 0, z: 0 },
     health: { current: 10000, max: 10000 },
     facingFlip: false,
     visualFlip: 1,
@@ -21,10 +22,16 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
       power: combat.power, 
       speed: combat.speed, 
       range: combat.range, 
+      knockback: combat.knockback,
       type: combat.attackType,
       vfxType: combat.vfxType,
       burst: combat.burst,
       burstInterval: combat.burstInterval
+    },
+    physics: {
+      damping: 0.8,
+      isGrounded: true,
+      mass: 5 // 主角质量较大
     },
     // 玩家特有组件
     input: true, 
@@ -33,7 +40,6 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
       luck: 10,
       baseSpeed: unitDef.movement.speed,
       radius: unitDef.radius ?? (unitDef.scale * 0.35), // 降级方案：基于视觉比例自动计算
-      mass: 100 // 主角质量极大，可以撞开别人
     } 
   })
 }

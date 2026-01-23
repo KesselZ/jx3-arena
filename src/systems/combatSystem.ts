@@ -70,8 +70,11 @@ export const combatSystem = (delta: number) => {
   }
 };
 
+// 性能优化：使用自增 ID 替代昂贵的 crypto.randomUUID()
+let effectIdCounter = 0;
+
 const performAttack = (attacker: Entity, target: Entity, time: number) => {
-  // 1. 更新攻击状态 (Burst 状态机)
+  // ... 之前的状态更新逻辑保持不变 ...
   const isBursting = (attacker.burstRemaining || 0) > 0;
   
   if (isBursting) {
@@ -90,8 +93,22 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   // 记录攻击方向角
   const adx = target.position.x - attacker.position.x;
   const adz = target.position.z - attacker.position.z;
+  const dist = Math.sqrt(adx * adx + adz * adz) || 1;
   const angle = Math.atan2(adx, adz);
   attacker.lastAttackAngle = angle;
+
+  // --- 物理冲量：仅受击者产生位移 ---
+  const nx = adx / dist;
+  const nz = adz / dist;
+  
+  // 1. 攻击者不再产生 velocity 增量，保持重心稳固
+  // 2. 受击者根据攻击者的 knockback 属性和自身的 mass 产生位移
+  const kbPower = attacker.attack!.knockback || 0;
+  const targetMass = target.physics?.mass || 1;
+  const finalKnockback = kbPower / targetMass;
+
+  target.velocity.x += nx * finalKnockback;
+  target.velocity.z += nz * finalKnockback;
 
   // 2. 伤害应用
   target.health.current -= attacker.attack!.power;
@@ -108,31 +125,33 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
 
     const ddx = target.position.x - attacker.position.x;
     const ddz = target.position.z - attacker.position.z;
-    const dist = Math.sqrt(ddx * ddx + ddz * ddz) || 1;
-    target.deathDir = { x: ddx / dist, y: 0, z: ddz / dist };
+    const ddist = Math.sqrt(ddx * ddx + ddz * ddz) || 1;
+    target.deathDir = { x: ddx / ddist, y: 0, z: ddz / ddist };
   }
 
-  // --- 3. 产生特效 (消融实验结束：恢复特效生成) ---
+  // --- 3. 产生特效 (内存优化版：确保属性完整) ---
   const isMelee = attacker.attack!.type === 'melee';
-  const dx = target.position.x - attacker.position.x;
-  const dz = target.position.z - attacker.position.z;
+  const duration = isMelee ? 0.3 : 0.8;
 
-  world.add({
-    id: crypto.randomUUID(),
-    type: 'effect',
-    position: { ...attacker.position },
+  // 显式创建对象，确保所有查询所需的属性都存在
+  const effectData: Entity = {
+    id: `fx-${effectIdCounter++}`,
+    type: 'effect', // 必须有 type 才能被 queries.effects 捕获
+    position: { x: attacker.position.x, y: attacker.position.y, z: attacker.position.z },
     velocity: { x: 0, y: 0, z: 0 },
     health: { current: 1, max: 1 },
-    lifetime: { remaining: isMelee ? 0.3 : 0.8 },
+    lifetime: { remaining: duration },
     effect: {
       type: attacker.attack!.vfxType,
       startTime: time,
-      duration: isMelee ? 0.3 : 0.8, 
-      angle, 
-      attackerPos: { ...attacker.position }, 
-      targetPos: { ...target.position },
+      duration: duration, 
+      angle: angle, 
+      attackerPos: { x: attacker.position.x, y: attacker.position.y, z: attacker.position.z }, 
+      targetPos: { x: target.position.x, y: target.position.y, z: target.position.z },
       attackerType: attacker.type as any, 
-      length: Math.sqrt(dx * dx + dz * dz)
+      length: dist
     }
-  });
+  };
+
+  world.add(effectData);
 };

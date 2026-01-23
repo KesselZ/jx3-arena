@@ -14,6 +14,7 @@ export type Attack = {
   power: number; 
   speed: number; 
   range: number; 
+  knockback: number; // 新增：攻击自带的击退强度
   type: 'melee' | 'ranged';
   vfxType: 'slash' | 'arrow' | 'burst'; // 明确攻击产生的特效类型
   burst?: number;
@@ -36,7 +37,8 @@ export type Entity = {
   
   // 核心组件
   position: Position
-  velocity: Velocity
+  velocity: Velocity      // 物理速度 (击退、碰撞产生的合力)
+  moveIntent: Velocity    // 移动意图 (玩家输入或 AI 驱动的方向)
   quaternion?: { x: number; y: number; z: number; w: number }
   health: Health
   
@@ -50,6 +52,13 @@ export type Entity = {
   
   // 基础组件
   lifetime?: { remaining: number }; // 通用生命周期：倒计时结束自动销毁
+  
+  // 物理组件
+  physics?: {
+    damping: number;    // 阻尼 (0-1)，决定物理速度衰减快慢
+    isGrounded: boolean;
+    mass: number;       // 质量，影响被推开的力度
+  }
   
   // 特效专用组件
   effect?: {

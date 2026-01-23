@@ -12,9 +12,9 @@ export const inputSystem = (keys: Record<string, boolean>, camera: THREE.Camera)
 
   const moveSpeed = player.stats?.baseSpeed || GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED
   
-  // 每一帧重置速度
-  player.velocity.x = 0
-  player.velocity.z = 0
+  // 每一帧重置移动意图
+  player.moveIntent.x = 0
+  player.moveIntent.z = 0
 
   // 计算相机的水平正方向 (忽略 Y 轴)
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
@@ -49,7 +49,7 @@ export const inputSystem = (keys: Record<string, boolean>, camera: THREE.Camera)
   // 归一化移动向量，防止斜向移动过快
   if (moveX !== 0 || moveZ !== 0) {
     const length = Math.sqrt(moveX * moveX + moveZ * moveZ)
-    player.velocity.x = (moveX / length) * moveSpeed
-    player.velocity.z = (moveZ / length) * moveSpeed
+    player.moveIntent.x = moveX / length
+    player.moveIntent.z = moveZ / length
   }
 }

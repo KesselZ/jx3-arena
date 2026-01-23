@@ -43,16 +43,16 @@ export const aiSystem = (delta: number) => {
       
       if (distSq > stopDistSq) {
         const dist = Math.sqrt(distSq)
-        const speed = entity.stats?.baseSpeed || 1.5
-        entity.velocity.x = (dx / dist) * speed
-        entity.velocity.z = (dz / dist) * speed
+        // AI 只修改 moveIntent，不直接操作 velocity
+        entity.moveIntent.x = dx / dist
+        entity.moveIntent.z = dz / dist
       } else {
-        entity.velocity.x = 0
-        entity.velocity.z = 0
+        entity.moveIntent.x = 0
+        entity.moveIntent.z = 0
       }
     } else {
-      entity.velocity.x = 0
-      entity.velocity.z = 0
+      entity.moveIntent.x = 0
+      entity.moveIntent.z = 0
       // 如果目标丢失（死亡或超出范围），清除目标 ID，等待下一个 TICK 重新索敌
       entity.ai.targetId = undefined;
     }

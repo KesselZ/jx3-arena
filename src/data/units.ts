@@ -22,6 +22,7 @@ export interface UnitConfig {
     range: number;
     speed: number; // 攻击速度 (每秒攻击次数)
     power: number; // 攻击力
+    knockback: number; // 击退强度
     burst?: number; // 连发次数 (例如 3 连发)
     burstInterval?: number; // 连发间隔 (秒)
   };
@@ -43,7 +44,8 @@ export const UNITS: Record<string, UnitConfig> = {
       vfxType: 'slash',
       range: 0.3,
       speed: 1.5,
-      power: 15
+      power: 15,
+      knockback: 100
     },
     movement: {
       speed: 6.0
@@ -59,7 +61,8 @@ export const UNITS: Record<string, UnitConfig> = {
       vfxType: 'slash',
       range: 0.5,
       speed: 1.2,
-      power: 25
+      power: 25,
+      knockback: 100
     },
     movement: {
       speed: 5.5
@@ -77,7 +80,8 @@ export const UNITS: Record<string, UnitConfig> = {
       vfxType: 'slash',
       range: 0.3,
       speed: 1.0,
-      power: 10
+      power: 10,
+      knockback: 1.5
     },
     movement: {
       speed: 4.5
@@ -95,7 +99,8 @@ export const UNITS: Record<string, UnitConfig> = {
       vfxType: 'slash',
       range: 0.3,
       speed: 1.2,
-      power: 8
+      power: 8,
+      knockback: 1.2
     },
     movement: {
       speed: 4.0
@@ -112,6 +117,7 @@ export const UNITS: Record<string, UnitConfig> = {
       range: 10.0,
       speed: 0.4, // 降低基础攻速，因为有连发
       power: 5,
+      knockback: 0.5,
       burst: 3, // 三连发
       burstInterval: 0.15 // 连发间隔 0.15s
     },

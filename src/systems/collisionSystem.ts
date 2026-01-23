@@ -44,19 +44,42 @@ export function collisionSystem() {
         const nz = dz / dist
         
         // --- 质量比优化：计算挤压权重 ---
-        const massA = entity.stats.mass || 1
-        const massB = other.stats.mass || 1
+        const massA = entity.physics?.mass || 1
+        const massB = other.physics?.mass || 1
         const totalMass = massA + massB
         
         // 质量越大，被挤开的比例越小 (反比关系)
         const weightA = massB / totalMass 
         const weightB = massA / totalMass
         
-        // 更新位置
-        entity.position.x -= nx * overlap * weightA
-        entity.position.z -= nz * overlap * weightA
-        other.position.x += nx * overlap * weightB
-        other.position.z += nz * overlap * weightB
+        // --- 软碰撞处理：将重叠转化为物理速度 (Velocity) ---
+        // 增加动态硬度：如果一方速度极快（被击退中），碰撞硬度临时提高，确保能撞开人
+        const velA = Math.sqrt(entity.velocity.x ** 2 + entity.velocity.z ** 2);
+        const velB = Math.sqrt(other.velocity.x ** 2 + other.velocity.z ** 2);
+        const hardness = 0.5 + Math.max(velA, velB) * 0.1; 
+        
+        const pushPower = overlap * Math.min(hardness, 5.0); // 封顶硬度，防止数值爆炸
+        
+        entity.velocity.x -= nx * pushPower * weightA
+        entity.velocity.z -= nz * pushPower * weightA
+        other.velocity.x += nx * pushPower * weightB
+        other.velocity.z += nz * pushPower * weightB
+
+        // --- 新增：动量传递 (保龄球连锁反应) ---
+        // 如果 A 正在高速撞向 B，将 A 的一部分速度传给 B
+        const rvx = entity.velocity.x - other.velocity.x;
+        const rvz = entity.velocity.z - other.velocity.z;
+        const velAlongNormal = rvx * nx + rvz * nz;
+
+        if (velAlongNormal > 2.0) {
+            const momentumTransfer = 0.6; // 动量传递比例
+            const impulse = velAlongNormal * momentumTransfer;
+            
+            entity.velocity.x -= impulse * nx * weightA;
+            entity.velocity.z -= impulse * nz * weightA;
+            other.velocity.x += impulse * nx * weightB;
+            other.velocity.z += nz * pushPower * weightB; // 注意：这里也需要考虑质量
+        }
       }
     }
   }

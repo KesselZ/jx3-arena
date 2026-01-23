@@ -39,18 +39,17 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
   const unitDef = UNITS[unitId as keyof typeof UNITS]
   const meshRef = useRef<any>(null)
 
-  if (!asset || !unitDef) return null
-
   const geometry = useMemo(() => {
+    if (!asset) return new THREE.PlaneGeometry(1, 1)
     const geo = new THREE.PlaneGeometry(asset.width / asset.height, 1)
     const offset = 0.5 - asset.anchorY
     geo.translate(0, -offset, 0)
     return geo
-  }, [asset.width, asset.height, asset.anchorY])
+  }, [asset?.width, asset?.height, asset?.anchorY])
 
   useFrame(({ camera }) => {
-    if (!meshRef.current) return
-
+    if (!meshRef.current || !asset || !unitDef) return
+    
     const currentTime = performance.now() / 1000
     const deathDuration = GAME_CONFIG.BATTLE.DEATH_DURATION
     const baseScale = unitDef.scale || 1.0
@@ -102,11 +101,13 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         _tempColor.setRGB(1, 1 - p, 1 - p)
       } else {
         // 生存动画逻辑 (移动跳动、攻击冲刺等)
-        const velocity = entity.velocity || { x: 0, y: 0, z: 0 }
-        const currentSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+        const moveIntent = entity.moveIntent || { x: 0, y: 0, z: 0 }
+        const intentSpeed = Math.sqrt(moveIntent.x ** 2 + moveIntent.z ** 2)
+        
         let bounce = 0, tilt = 0
-        if (currentSpeed > 0.1) {
-          const t = (currentTime + (entity.animOffset || 0)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * (currentSpeed / 5)
+        if (intentSpeed > 0.1) {
+          // 动画频率只参考移动意图，不再受物理阻尼影响
+          const t = (currentTime + (entity.animOffset || 0)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ
           bounce = Math.abs(Math.sin(t)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
           tilt = Math.sin(t) * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
         }
@@ -116,7 +117,8 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         const timeSinceAttack = currentTime - lastActiveAttackTime
         if (timeSinceAttack < GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION) {
           const p = timeSinceAttack / GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION
-          const strength = Math.sin(p * Math.PI) * GAME_CONFIG.BATTLE.ATTACK_LUNGE_FORCE 
+          // 视觉冲刺保留，但主要位移已由物理系统接管
+          const strength = Math.sin(p * Math.PI) * (GAME_CONFIG.BATTLE.ATTACK_LUNGE_FORCE * 0.5)
           lungeX = Math.sin(entity.lastAttackAngle || 0) * strength
           lungeZ = Math.cos(entity.lastAttackAngle || 0) * strength
         }
@@ -130,18 +132,22 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
 
         // 3. 处理朝向 (Facing)
         const isRecentlyAttacking = timeSinceAttack < 0.3 
-        if (entity.velocity && (isRecentlyAttacking || currentSpeed > 0.1)) {
-          let sideDot = 0, forwardDot = 0
+        const velocity = entity.velocity || { x: 0, y: 0, z: 0 }
+        const physicalSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+
+        // 判定准则：攻击方向优先，其次是移动意图方向，最后是物理速度方向
+        if (isRecentlyAttacking || intentSpeed > 0.1 || physicalSpeed > 0.5) {
+          let sideDot = 0
           if (isRecentlyAttacking) {
             const angle = entity.lastAttackAngle || 0
-            const s = Math.sin(angle), c = Math.cos(angle)
-            sideDot = s * _camRight.x + c * _camRight.z
-            forwardDot = s * _camForward.x + c * _camForward.z
+            sideDot = Math.sin(angle) * _camRight.x + Math.cos(angle) * _camRight.z
+          } else if (intentSpeed > 0.1) {
+            sideDot = moveIntent.x * _camRight.x + moveIntent.z * _camRight.z
           } else {
-            sideDot = entity.velocity.x * _camRight.x + entity.velocity.z * _camRight.z
-            forwardDot = entity.velocity.x * _camForward.x + entity.velocity.z * _camForward.z
+            sideDot = velocity.x * _camRight.x + velocity.z * _camRight.z
           }
-          if (isRecentlyAttacking || Math.abs(sideDot) > Math.abs(forwardDot) * 0.5 + 0.1) {
+          
+          if (Math.abs(sideDot) > 0.1) {
             entity.facingFlip = (unitDef.facing || 'right') === 'right' ? sideDot < 0 : sideDot > 0
           }
         }
@@ -161,23 +167,21 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
 
       // 5. 应用最终矩阵和颜色
       const vFlip = entity.visualFlip ?? (entity.facingFlip ? -1 : 1)
-      _tempObj.scale.set(vFlip * baseScale * hitScale, baseScale * hitScale, 1)
-      _tempObj.updateMatrix()
+      _v1.set(vFlip * baseScale * hitScale, baseScale * hitScale, 1) // Reuse _v1 as scale
+      
+      // 使用 compose 替代 updateMatrix，性能更高且更直接
+      _tempObj.matrix.compose(_tempObj.position, _tempObj.quaternion, _v1)
       
       meshRef.current.setMatrixAt(i, _tempObj.matrix)
       meshRef.current.setColorAt(i, _tempColor)
     }
 
-    // 填充剩余的实例，将它们移到视口外或缩放为 0
-    for (let i = entities.length; i < GAME_CONFIG.BATTLE.MAX_INSTANCES_PER_TYPE; i++) {
-      _tempObj.position.set(0, -1000, 0)
-      _tempObj.scale.set(0, 0, 0)
-      _tempObj.updateMatrix()
-      meshRef.current.setMatrixAt(i, _tempObj.matrix)
-    }
-
-    // 核心：告诉 Three.js 这一帧数据更新了
+    // 6. 核心优化：利用 mesh.count 限制渲染范围，不再每帧全量遍历空实例
     meshRef.current.count = entities.length
+    
+    // 只有当实体数量减少时，才需要把多余的实例“藏起来”，防止下次 count 增加时闪现
+    // 这里可以做一个简单的阈值记录，或者在实体移除时处理，目前先保持 count 限制
+    
     meshRef.current.instanceMatrix.needsUpdate = true
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true

@@ -19,6 +19,7 @@ export const createNPC = (
     unitId,
     position: { x, y: 0, z },
     velocity: { x: 0, y: 0, z: 0 },
+    moveIntent: { x: 0, y: 0, z: 0 },
     health: { current: 50, max: 50 },
     facingFlip: false,
     visualFlip: 1,
@@ -27,12 +28,18 @@ export const createNPC = (
       behavior: 'chase', // 默认都开启追逐逻辑
       targetId: undefined 
     },
+    physics: {
+      damping: 0.8,
+      isGrounded: true,
+      mass: 1
+    },
     animOffset: Math.random() * 10, // 新增：随机动画偏移量，打破“军队感”
     // 战斗属性显式对齐
     attack: { 
       power: combat.power, 
       speed: combat.speed, 
       range: combat.range, 
+      knockback: combat.knockback,
       type: combat.attackType,
       vfxType: combat.vfxType,
       burst: combat.burst,
