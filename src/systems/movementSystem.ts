@@ -7,6 +7,9 @@ export const movementSystem = (delta: number) => {
 
   for (const entity of world.entities) {
     if (entity.position && entity.velocity && entity.moveIntent) {
+      // 只有特定类型的实体（玩家、敌人、盟友）参与常规移动系统的重力、阻尼和边界限制
+      const isCombatant = entity.type === 'player' || entity.type === 'enemy' || entity.type === 'ally';
+      if (!isCombatant) continue;
       
       // 1. 物理层：应用阻尼衰减 (Physics Engine 驱动)
       // 物理速度 (velocity) 会随时间自然停下
@@ -37,9 +40,39 @@ export const movementSystem = (delta: number) => {
       const physicalSpeedSq = entity.velocity.x ** 2 + entity.velocity.z ** 2;
 
       if (intentSpeedSq > 0.01 || physicalSpeedSq > 0.25) {
-        // 记录原始的世界坐标系移动向量，渲染层会结合相机视角来决定最终翻转
-        entity.lastMoveX = intentSpeedSq > 0.01 ? entity.moveIntent.x : entity.velocity.x;
-        entity.lastMoveZ = intentSpeedSq > 0.01 ? entity.moveIntent.z : entity.velocity.z;
+        const newMoveX = intentSpeedSq > 0.01 ? entity.moveIntent.x : entity.velocity.x;
+        const newMoveZ = intentSpeedSq > 0.01 ? entity.moveIntent.z : entity.velocity.z;
+
+        // --- 核心优化：意图过滤 (Hysteresis) ---
+        // 玩家本人不应用此过滤，保证操作响应灵敏
+        const isPlayer = entity.id === 'player-main';
+
+        if (!isPlayer && entity.lastMoveX !== undefined) {
+          const dot = newMoveX * entity.lastMoveX + newMoveZ * entity.lastMoveZ;
+          const currentTime = performance.now() / 1000;
+
+          if (dot < -0.1) { // 方向相反
+            if (!entity.flipPendingTime) {
+              entity.flipPendingTime = currentTime;
+            }
+            
+            // 只有当反向意图持续超过配置时长，才准许更新 lastMove
+            if (currentTime - entity.flipPendingTime > GAME_CONFIG.VISUAL.FACING_HYSTERESIS) {
+              entity.lastMoveX = newMoveX;
+              entity.lastMoveZ = newMoveZ;
+              entity.flipPendingTime = undefined;
+            }
+          } else {
+            // 方向基本一致，正常更新并重置计时器
+            entity.lastMoveX = newMoveX;
+            entity.lastMoveZ = newMoveZ;
+            entity.flipPendingTime = undefined;
+          }
+        } else {
+          // 初始状态，直接赋值
+          entity.lastMoveX = newMoveX;
+          entity.lastMoveZ = newMoveZ;
+        }
       }
 
       // 边界限制 (空气墙) - 对所有战斗单位生效

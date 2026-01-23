@@ -143,9 +143,18 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           }
         }
 
-        // 平滑翻转动画：将中间值存回 entity
+        // 平滑翻转动画：将中间值存回 entity (使用 delta 确保高刷屏一致性)
         if (entity.visualFlip === undefined) entity.visualFlip = entity.facingFlip ? -1 : 1
-        entity.visualFlip = THREE.MathUtils.lerp(entity.visualFlip, entity.facingFlip ? -1 : 1, 0.25)
+        
+        const targetFlip = entity.facingFlip ? -1 : 1
+        // 将时长转换为速度系数: speed = 4.6 / duration (4.6 是到达 99% 的系数)
+        const flipSpeed = 4.6 / Math.max(0.01, GAME_CONFIG.VISUAL.FACING_FLIP_DURATION)
+        
+        // 使用 exp-lerp 公式: 1 - exp(-speed * dt)
+        // 这样无论帧率是多少，在固定时间内趋近目标的比例是相同的
+        const lerpFactor = 1 - Math.exp(-flipSpeed * (currentTime - (entity.lastVisualUpdate || currentTime - 0.016)))
+        entity.visualFlip = THREE.MathUtils.lerp(entity.visualFlip, targetFlip, Math.min(1, lerpFactor))
+        entity.lastVisualUpdate = currentTime
         
         // 4. 处理受击效果 (Hit Flash)
         const timeSinceHit = entity.health ? currentTime - (entity.health.lastHitTime || 0) : 999
