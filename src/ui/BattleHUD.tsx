@@ -41,7 +41,8 @@ export function PerformanceMonitor() {
         frameTime: delta * 1000,
         drawCalls: currentDrawCalls, // 使用实时抓取的数值
         triangles: currentTriangles,
-        logicTime: (state as any).lastLogicDuration || 0,
+        logicTime: (state as any).perfMetrics?.total || 0,
+        perfMetrics: (state as any).perfMetrics,
         memory: {
           geometries: currentGeometries,
           textures: currentTextures
@@ -69,16 +70,23 @@ function StatsPanel() {
   const triangles = useGameStore(state => state.triangles)
   const logicTime = useGameStore(state => state.logicTime)
   const memory = useGameStore(state => state.memory)
+  const perfMetrics = useGameStore(state => state.perfMetrics)
   const selectedCharacter = useGameStore(state => state.selectedCharacter)
   const entities = useEntities(world)
 
   if (!GAME_CONFIG.DEBUG) return null
 
+  const getMetricColor = (val: number) => {
+    if (val > 2) return 'text-jx3-vermilion'
+    if (val > 1) return 'text-orange-400'
+    return 'text-jx3-gold'
+  }
+
   return (
     <div className="absolute bottom-4 right-4 z-50 pointer-events-none">
-      <div className="pixel-panel !p-3 bg-jx3-ink/80 border-jx3-gold !text-[10px] text-jx3-gold font-mono leading-tight shadow-2xl min-w-[160px]">
+      <div className="pixel-panel !p-3 bg-jx3-ink/80 border-jx3-gold !text-[9px] text-jx3-gold font-mono leading-tight shadow-2xl min-w-[180px]">
         <div className="flex justify-between gap-4 mb-1 border-b border-jx3-gold/20 pb-1">
-          <span className="opacity-70 font-bold">PERFORMANCE DEBUG</span>
+          <span className="opacity-70 font-bold">PERFORMANCE PRO</span>
         </div>
         
         <div className="space-y-0.5">
@@ -90,11 +98,23 @@ function StatsPanel() {
             <span>Frame</span>
             <span>{frameTime?.toFixed(2) || 0}ms</span>
           </div>
-          <div className="flex justify-between gap-4">
-            <span>Logic</span>
+          <div className="flex justify-between gap-4 font-bold border-b border-jx3-gold/10 pb-0.5 mb-1">
+            <span>Logic Total</span>
             <span className={logicTime > 10 ? 'text-jx3-vermilion' : 'text-jx3-gold'}>{logicTime?.toFixed(2) || 0}ms</span>
           </div>
           
+          {perfMetrics && (
+            <div className="space-y-0 text-[8px] opacity-80">
+              <div className="flex justify-between"><span>├ Input</span><span className={getMetricColor(perfMetrics.input)}>{perfMetrics.input.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>├ Hash</span><span className={getMetricColor(perfMetrics.hash)}>{perfMetrics.hash.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>├ AI</span><span className={getMetricColor(perfMetrics.ai)}>{perfMetrics.ai.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>├ Combat</span><span className={getMetricColor(perfMetrics.combat)}>{perfMetrics.combat.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>├ Projectile</span><span className={getMetricColor(perfMetrics.projectile)}>{perfMetrics.projectile.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>├ Movement</span><span className={getMetricColor(perfMetrics.movement)}>{perfMetrics.movement.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>└ Collision</span><span className={getMetricColor(perfMetrics.collision)}>{perfMetrics.collision.toFixed(2)}ms</span></div>
+            </div>
+          )}
+
           <div className="my-1 border-t border-jx3-gold/10" />
           
           <div className="flex justify-between gap-4">
@@ -116,17 +136,6 @@ function StatsPanel() {
             <span>Entities</span>
             <span className="text-jx3-gold font-bold">{world.entities.length}</span>
           </div>
-
-          <div className="my-1 border-t border-jx3-gold/10" />
-          
-          <div className="flex justify-between gap-4 text-[8px] italic opacity-60">
-            <span>Char ID</span>
-            <span>{selectedCharacter || 'NULL'}</span>
-          </div>
-        </div>
-
-        <div className="mt-1 pt-1 border-t border-jx3-gold/20 opacity-40 text-[8px] text-right">
-          DEV MODE
         </div>
       </div>
     </div>

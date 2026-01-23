@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { world, queries, Entity } from '../engine/ecs'
+import { world, queries, Entity, entityMap } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
 import { GAME_CONFIG } from '../game/config'
 
@@ -26,10 +26,10 @@ export function projectileSystem(dt: number) {
       continue
     }
 
-    // 2. 追踪逻辑 (可选)
+    // 2. 追踪逻辑 (使用 entityMap 优化查找性能 O(1))
     if (p.targetId) {
-      const target = world.entities.find(e => e.id === p.targetId && !e.dead)
-      if (target) {
+      const target = entityMap.get(p.targetId)
+      if (target && !target.dead) {
         // 简单的转向逻辑：向目标位置插值
         _v1.set(target.position.x, target.position.y + 1, target.position.z)
         _v2.set(entity.position.x, entity.position.y, entity.position.z)
@@ -65,15 +65,22 @@ export function projectileSystem(dt: number) {
     // 5. 碰撞检测 (使用 spatialHash)
     const nearby = spatialHash.query(entity.position.x, entity.position.z, 1.0)
     
+    // 获取主人阵营，用于友伤检测
+    const owner = entityMap.get(p.ownerId)
+    const isOwnerFriendly = owner ? (owner.type === 'player' || owner.type === 'ally') : false
+
     for (let j = 0; j < nearby.length; j++) {
       const target = nearby[j]
       
-      // 排除自己、已击中的目标、非战斗人员
+      // 1. 排除自己、已击中的目标、非战斗人员
       if (target.id === p.ownerId || p.hitEntities.has(target.id)) continue
-      
       if (target.dead || !target.health) continue
 
-      // 距离检测 (0.6米视为击中)
+      // 2. 阵营检测 (不伤害队友)
+      const isTargetFriendly = target.type === 'player' || target.type === 'ally'
+      if (isOwnerFriendly === isTargetFriendly) continue // 同阵营跳过
+
+      // 3. 距离检测 (0.6米视为击中)
       const distSq = (target.position.x - entity.position.x) ** 2 + 
                      (target.position.z - entity.position.z) ** 2
       

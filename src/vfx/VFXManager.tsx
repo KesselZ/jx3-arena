@@ -13,8 +13,9 @@ export function VFXManager() {
     <>
       {/* 自动分组并分发给对应的实例化渲染器 */}
       <SlashingVFX entities={entities.filter(e => e.effect?.type === 'slash')} />
-      <ArrowVFX entities={entities.filter(e => e.effect?.type === 'arrow')} />
-      <AirSwordVFX entities={entities.filter(e => e.effect?.type === 'air_sword')} />
+      {/* 消融实验：暂时注释掉弹道渲染 */}
+      {/* <ArrowVFX entities={entities.filter(e => e.effect?.type === 'arrow')} /> */}
+      {/* <AirSwordVFX entities={entities.filter(e => e.effect?.type === 'air_sword')} /> */}
     </>
   )
 }

@@ -30,13 +30,26 @@ interface GameState {
     geometries: number
     textures: number
   }
+  perfMetrics?: {
+    input: number,
+    spawn: number,
+    hash: number,
+    ai: number,
+    combat: number,
+    projectile: number,
+    movement: number,
+    collision: number,
+    vfx: number,
+    total: number
+  }
   updateStats: (stats: { 
     fps: number, 
     frameTime: number, 
     drawCalls: number, 
     triangles: number, 
     logicTime: number,
-    memory: { geometries: number, textures: number }
+    memory: { geometries: number, textures: number },
+    perfMetrics?: any
   }) => void
 }
 

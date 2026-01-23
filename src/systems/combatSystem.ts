@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { world, Entity } from '../engine/ecs';
 import { findNearestHostile, findHero } from '../engine/targeting';
+import { UNITS } from '../data/units';
 
 /**
  * 战斗系统：负责检测范围并触发攻击逻辑
@@ -87,9 +88,13 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   
   const isMelee = attacker.attack!.type === 'melee';
   const vfxType = attacker.attack!.vfxType;
+  const unitDef = attacker.unitId ? (UNITS as any)[attacker.unitId] : null;
 
-  if (!isMelee && vfxType === 'air_sword') {
-    const speed = 25;
+  // --- 弹道发射逻辑 (远程攻击统一走弹道系统) ---
+  if (!isMelee && unitDef?.combat?.projectile) {
+    const pConfig = unitDef.combat.projectile;
+    const speed = pConfig.speed;
+    
     const projectileEntity: Entity = {
       id: 'projectile-' + (effectIdCounter++),
       type: 'bullet',
@@ -100,23 +105,24 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
       projectile: {
         damage: attacker.attack!.power,
         speed: speed,
-        pierce: 3,
-        maxPierce: 3,
+        pierce: pConfig.pierce,
+        maxPierce: pConfig.pierce,
         ownerId: attacker.id,
-        targetId: target.id,
+        targetId: pConfig.logic === 'tracking' ? target.id : undefined,
         hitEntities: new Set(),
-        lifeTime: 2.0,
+        lifeTime: pConfig.lifeTime,
       },
       effect: {
-        type: 'air_sword',
+        type: vfxType as any,
         startTime: time,
-        duration: 2.0,
+        duration: pConfig.lifeTime,
       }
     };
     world.add(projectileEntity);
-    return;
+    return; // 远程攻击不再直接应用伤害
   }
 
+  // --- 直接伤害逻辑 (仅限近战) ---
   const kbPower = attacker.attack!.knockback || 0;
   const targetMass = target.physics?.mass || 1;
   const finalKnockback = kbPower / targetMass;
@@ -146,16 +152,17 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
     }
   }
 
+  // --- 产生特效 (找回近战特效) ---
   const duration = isMelee ? 0.3 : 0.8;
   const effectData: Entity = {
-    id: 'fx-' + (effectIdCounter++),
+    id: `fx-${effectIdCounter++}`,
     type: 'effect',
-    position: { ...attacker.position },
+    position: { x: attacker.position.x, y: attacker.position.y, z: attacker.position.z },
     velocity: { x: 0, y: 0, z: 0 },
     health: { current: 1, max: 1 },
     lifetime: { remaining: duration },
     effect: {
-      type: attacker.attack!.vfxType as any,
+      type: vfxType as any,
       startTime: time,
       duration: duration, 
       angle: angle, 

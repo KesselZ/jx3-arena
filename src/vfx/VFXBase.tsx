@@ -20,6 +20,7 @@ import { GAME_CONFIG } from '../game/config'
 // 全局渲染临时对象
 const _tempObj = new THREE.Object3D()
 const _up = new THREE.Vector3(0, 1, 0)
+const _vScale = new THREE.Vector3(1, 1, 1)
 
 /**
  * VFXGroup: 高性能特效渲染底座
@@ -70,15 +71,15 @@ export function VFXGroup({
         _tempObj.quaternion.set(0, 0, 0, 1)
       }
       
-      _tempObj.scale.set(1, 1, 1)
-      _tempObj.updateMatrix() 
+      _vScale.set(1, 1, 1)
+      // 注意：这里不再调用 _tempObj.updateMatrix()，而是把 _tempObj 传给 onUpdate 进一步修改
 
       // --- 2. 【美术定义层】：调用 Library 处理本地空间表现 ---
       onUpdate(_tempObj, progress, entity)
 
-      // --- 3. 应用最终矩阵 ---
-      _tempObj.updateMatrix()
-      meshRef.current.setMatrixAt(i, _tempObj.matrix)
+      // --- 3. 应用最终矩阵 (使用 compose 替代 updateMatrix，性能更高) ---
+      // 如果 onUpdate 里面修改了 scale，我们需要确保它被应用
+      meshRef.current.setMatrixAt(i, _tempObj.matrix.compose(_tempObj.position, _tempObj.quaternion, _tempObj.scale))
       
       if (meshRef.current.instanceColor && (_tempObj as any)._color) {
         meshRef.current.setColorAt(i, (_tempObj as any)._color)

@@ -25,6 +25,13 @@ export interface UnitConfig {
     knockback: number; // 击退强度
     burst?: number; // 连发次数 (例如 3 连发)
     burstInterval?: number; // 连发间隔 (秒)
+    // 新增：弹道配置
+    projectile?: {
+      speed: number;
+      pierce: number;
+      logic: 'straight' | 'tracking';
+      lifeTime: number;
+    };
   };
   movement: {
     speed: number; // 移动速度 (单位/秒)
@@ -47,7 +54,13 @@ export const UNITS: Record<string, UnitConfig> = {
       power: 20,
       knockback: 100,
       burst: 3,
-      burstInterval: 0.1
+      burstInterval: 0.1,
+      projectile: {
+        speed: 25,
+        pierce: 3,
+        logic: 'tracking',
+        lifeTime: 2.0
+      }
     },
     movement: {
       speed: 6.0
@@ -121,7 +134,13 @@ export const UNITS: Record<string, UnitConfig> = {
       power: 5,
       knockback: 0.5,
       burst: 3, // 三连发
-      burstInterval: 0.15 // 连发间隔 0.15s
+      burstInterval: 0.15, // 连发间隔 0.15s
+      projectile: {
+        speed: 20,
+        pierce: 5,
+        logic: 'straight',
+        lifeTime: 2.0
+      }
     },
     movement: {
       speed: 3.5

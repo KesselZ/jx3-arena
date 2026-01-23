@@ -83,9 +83,9 @@ export function SlashingVFX({ entities }: { entities: any[] }) {
 
 /**
  * 箭矢特效 (ArrowVFX)
- * 特殊案例：点对点特效，覆盖了 Base 的默认位置逻辑
+ * 已改为逻辑实体驱动：直接同步实体的物理坐标
  */
-export function ArrowVFX({ entities }: { entities: any[] }) {
+export function ArrowVFX({ entities }: { entities: Entity[] }) {
   return (
     <VFXGroup
       entities={entities}
@@ -93,18 +93,25 @@ export function ArrowVFX({ entities }: { entities: any[] }) {
       geometry={<boxGeometry args={[0.06, 0.06, 1]} />}
       material={<meshBasicMaterial transparent blending={THREE.AdditiveBlending} depthWrite={false} />}
       onUpdate={(instance, progress, entity) => {
-        const fx = entity.effect
-        _vStart.set(fx.attackerPos.x, 1.2, fx.attackerPos.z)
-        _vEnd.set(fx.targetPos.x, 1.2, fx.targetPos.z)
-        instance.position.lerpVectors(_vStart, _vEnd, progress)
-        _m4.lookAt(_vStart, _vEnd, THREE.Object3D.DEFAULT_UP)
-        instance.quaternion.setFromRotationMatrix(_m4)
-        const scaleZ = Math.sin(progress * Math.PI) * 2.0 + 0.1
-        const dist = _vStart.distanceTo(_vEnd)
-        instance.scale.set(1, 1, Math.min(scaleZ, dist * 0.5))
-        const opacity = (1 - progress) * 2
-        _color.set("#ffaa00").multiplyScalar(opacity);
-        (instance as any)._color = _color
+        // 1. 同步逻辑层坐标
+        instance.position.set(entity.position.x, entity.position.y, entity.position.z)
+        
+        // 2. 同步逻辑层旋转
+        if (entity.quaternion) {
+          instance.quaternion.set(
+            entity.quaternion.x,
+            entity.quaternion.y,
+            entity.quaternion.z,
+            entity.quaternion.w
+          )
+        }
+
+        // 3. 视觉：固定大小
+        instance.scale.set(1, 1, 1)
+
+        // 4. 颜色 (黄色/橙色)
+        _color.set("#ffaa00")
+        ;(instance as any)._color = _color
       }}
     />
   )
