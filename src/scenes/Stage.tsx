@@ -1,6 +1,6 @@
 import { Sky, ContactShadows, Environment, Float, Image } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 import * as THREE from 'three'
 import { useMemo } from 'react'
 

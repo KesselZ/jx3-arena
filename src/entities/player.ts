@@ -1,7 +1,7 @@
 import { world, Entity } from '../engine/ecs'
 import { UNITS } from '../data/units'
 import { Assets } from '../assets/assets'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 export const createPlayer = (unitId: string, x: number, z: number): Entity => {
   const unitDef = UNITS[unitId];

@@ -1,6 +1,6 @@
 import { world, Entity } from '../engine/ecs'
 import { UNITS } from '../data/units'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 export const createNPC = (
   unitId: string, 

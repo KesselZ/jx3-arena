@@ -3,7 +3,7 @@ import { OrbitControls } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { world } from '../ecs'
-import { GAME_CONFIG } from '../../game/config'
+import { GAME_CONFIG } from '../../data/config'
 
 /**
  * OrbitCamera: 传统的轨道相机

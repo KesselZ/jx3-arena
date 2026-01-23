@@ -1,5 +1,5 @@
 import { world } from '../engine/ecs'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 import * as THREE from 'three'
 
 /**

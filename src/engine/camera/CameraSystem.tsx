@@ -1,5 +1,5 @@
 import React from 'react'
-import { GAME_CONFIG } from '../../game/config'
+import { GAME_CONFIG } from '../../data/config'
 import { TPSCamera } from './TPSCamera'
 import { OrbitCamera } from './OrbitCamera'
 

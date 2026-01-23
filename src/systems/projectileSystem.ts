@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { world, queries, Entity, entityMap } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()

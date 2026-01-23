@@ -85,10 +85,13 @@ export const GAME_CONFIG = {
     CAMERA_MIN_POLAR: Math.PI * (45 / 180),    // 限制在 45 度，防止拉得太高
     CAMERA_MAX_POLAR: Math.PI * (89.9 / 180),  // 接近 90 度，允许几乎水平观察
     // 角色动画参数
-    ANIM_BOUNCE_FREQ: 8,
-    ANIM_BOUNCE_AMP: 0.12,
-    ANIM_TILT_AMP: 0.08,
-    HIT_FLASH_DURATION: 0.07, // 缩短受击闪烁时长 (原 0.15)
+    ANIM_BOUNCE_FREQ: 10,      
+    ANIM_BOUNCE_AMP: 0.15,     
+    ANIM_TILT_AMP: 0.04,       // 大幅降低摇摆幅度 (原 0.08)
+    ANIM_SQUASH_AMP: 0.08,     // 降低拉伸张力到 0.08
+    IDLE_ANIM_FREQ: 2,         
+    IDLE_ANIM_AMP: 0.03,       
+    HIT_FLASH_DURATION: 0.07, 
     FACING_FLIP_DURATION: 0.2, // 角色翻转动画时长 (秒)
     FACING_HYSTERESIS: 0.5,   // 意图过滤时长 (秒)
   },

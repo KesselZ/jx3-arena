@@ -13,7 +13,6 @@ export interface UnitConfig {
   name: string;
   anchor: 'bottom' | 'center';
   isPlayable: boolean;
-  description?: string;
   scale: number;
   facing?: 'left' | 'right';
   combat: {
@@ -44,7 +43,7 @@ export const UNITS: Record<string, UnitConfig> = {
   'player_wanhua': { 
     sheet: 'wanhua', row: 2, col: 0, name: '万花师兄', 
     anchor: 'bottom',
-    isPlayable: true, description: '妙手空空，笔墨定乾坤。',
+    isPlayable: true,
     scale: 1.5,
     combat: {
       attackType: 'ranged',
@@ -69,7 +68,7 @@ export const UNITS: Record<string, UnitConfig> = {
   'player_tiance': { 
     sheet: 'tiance4', row: 1, col: 0, name: '天策师兄', 
     anchor: 'bottom',
-    isPlayable: true, description: '长枪所向，东都之狼。',
+    isPlayable: true,
     scale: 1.6,
     combat: {
       attackType: 'melee',

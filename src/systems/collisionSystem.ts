@@ -1,6 +1,6 @@
 import { queries } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 const COLLISION_CACHE: any[] = [] // 零分配缓存
 

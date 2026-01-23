@@ -11,7 +11,7 @@ import { createNPC, createSpectator } from '../entities/npc'
 import { world, queries } from '../engine/ecs'
 import { useKeyboard } from '../hooks/useKeyboard'
 import { resetSpawner } from '../systems/spawnSystem'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 import { Assets } from '../assets/assets'
 import { UNITS } from '../data/units'
 import { Stage } from './Stage'
@@ -78,6 +78,7 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
       _tempObj.quaternion.copy(camera.quaternion)
       _tempColor.setRGB(1, 1, 1) // 每一帧开始前重置为纯白，确保颜色不污染
       let hitScale = 1.0
+      let squash = 0 // 初始化 squash 变量，确保在所有分支中都可用
 
       if (isDead) {
         // 1. 死亡动画逻辑
@@ -104,14 +105,49 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         _tempColor.setRGB(0.6, 0.1, 0.1)
       } else {
         // 2. 生存动画逻辑
+        // 2. 生存动画逻辑
         const moveIntent = entity.moveIntent || { x: 0, y: 0, z: 0 }
         const intentSpeed = Math.sqrt(moveIntent.x ** 2 + moveIntent.z ** 2)
         
         let bounce = 0, tilt = 0
+        const tBase = (currentTime + (entity.animOffset || 0))
+        
         if (intentSpeed > 0.1) {
-          const t = (currentTime + (entity.animOffset || 0)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ
-          bounce = Math.abs(Math.sin(t)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
-          tilt = Math.sin(t) * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
+          // 移动动画：频率随速度动态调整
+          const speedFactor = 1 + (intentSpeed - GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED) * 0.1
+          const freq = GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * Math.max(0.5, speedFactor)
+          
+          const t = tBase * freq
+          const sinT = Math.sin(t)
+          const absSinT = Math.abs(sinT)
+          
+          // --- 进化 1: 非线性弹跳 ---
+          // 使用 pow(x, 1.5) 让落地更清脆，产生“蹬地”感
+          bounce = Math.pow(absSinT, 1.5) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
+          
+          // --- 进化 2: 减弱摇摆 ---
+          tilt = sinT * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
+          
+          // --- 进化 3: 动量对齐的挤压拉伸 ---
+          // 使用 cos 产生与 abs(sin) 错相的效果：落地(t=0, cos=1)时挤压最强
+          const squashCurve = Math.cos(t * 2)
+          squash = -squashCurve * GAME_CONFIG.VISUAL.ANIM_SQUASH_AMP
+        } else {
+          // 待机动画：呼吸起伏
+          const tIdle = tBase * GAME_CONFIG.VISUAL.IDLE_ANIM_FREQ
+          const idleSin = Math.sin(tIdle)
+          // 呼吸时，通过 squash 模拟高度变化，同时补偿 bounce 确保脚底不动
+          // 因为 Geometry 中心在 anchorY，scaleY 变化会导致上下两端都移动
+          // 我们需要计算出脚底移动的距离并抵消它
+          squash = idleSin * GAME_CONFIG.VISUAL.IDLE_ANIM_AMP
+          
+          const anchorY = asset.anchorY // 0.5 是中点，>0.5 是偏下
+          const visualHeight = baseScale
+          const heightChange = visualHeight * squash
+          // 脚底相对于中心的偏移是 (anchorY - 0.5) * height
+          // 缩放导致的脚底位移 = heightChange * (anchorY - 0.5)
+          // 我们需要反向移动 bounce 来抵消这个位移
+          bounce = heightChange * (anchorY - 0.5)
         }
 
         let lungeX = 0, lungeZ = 0
@@ -167,7 +203,14 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
 
       // 5. 应用最终矩阵和颜色
       const vFlip = entity.visualFlip ?? (entity.facingFlip ? -1 : 1)
-      _v1.set(vFlip * baseScale * hitScale, baseScale * hitScale, 1) // Reuse _v1 as scale
+      
+      // 计算挤压拉伸后的缩放
+      // squash > 0 时：拉伸（Y变大，X变小）
+      // squash < 0 时：挤压（Y变小，X变大）
+      const scaleY = baseScale * (1 + squash)
+      const scaleX = baseScale * (1 - squash)
+      
+      _v1.set(vFlip * scaleX * hitScale, scaleY * hitScale, 1) // Reuse _v1 as scale
       
       // 使用 compose 替代 updateMatrix，性能更高且更直接
       _tempObj.matrix.compose(_tempObj.position, _tempObj.quaternion, _v1)

@@ -1,6 +1,6 @@
 import { world, Entity, queries, entityMap } from '../engine/ecs'
 import { findNearestHostile } from '../engine/targeting'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 let aiFrameCounter = 0
 

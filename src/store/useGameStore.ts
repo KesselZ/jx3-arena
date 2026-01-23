@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 import { UNITS } from '../data/units'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 export type GamePhase = 'LOBBY' | 'CHARACTER_SELECT' | 'BATTLE' | 'SHOP' | 'GAMEOVER'
 export type GameTheme = keyof typeof GAME_CONFIG.THEMES

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { world } from '../ecs'
-import { GAME_CONFIG } from '../../game/config'
+import { GAME_CONFIG } from '../../data/config'
 
 /**
  * TPSCamera: 巫师 3 / 魔兽世界风格的第三人称相机

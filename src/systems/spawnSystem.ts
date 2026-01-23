@@ -1,4 +1,4 @@
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 import { createNPC } from '../entities/npc'
 import { UNITS } from '../data/units'
 

@@ -15,7 +15,7 @@ import { useFrame } from '@react-three/fiber'
 import { Instances } from '@react-three/drei'
 import * as THREE from 'three'
 import { world } from '../engine/ecs'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 // 全局渲染临时对象
 const _tempObj = new THREE.Object3D()

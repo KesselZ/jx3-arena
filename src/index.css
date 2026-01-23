@@ -72,4 +72,19 @@
   }
   .pixel-corners::before { @apply top-1 left-1 border-t-2 border-l-2; }
   .pixel-corners::after { @apply bottom-1 right-1 border-b-2 border-r-2; }
+
+  /* 隐藏滚动条但保留滚动功能 */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* 新增：边缘虚化遮罩，不遮挡背景 */
+  .mask-fade-edges {
+    mask-image: linear-gradient(to bottom, transparent, black 2rem, black calc(100% - 2rem), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 2rem, black calc(100% - 2rem), transparent);
+  }
 }

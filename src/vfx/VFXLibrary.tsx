@@ -10,7 +10,7 @@
 import * as THREE from 'three'
 import { useMemo } from 'react'
 import { VFXGroup } from './VFXBase'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 import { Entity } from '../engine/ecs'
 
 const _color = new THREE.Color()

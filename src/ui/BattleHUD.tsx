@@ -1,7 +1,7 @@
 import { useEntities } from 'miniplex-react'
 import { world, queries } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRef, useEffect } from 'react'
 

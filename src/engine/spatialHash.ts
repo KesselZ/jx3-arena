@@ -1,5 +1,5 @@
 import { Entity } from './ecs'
-import { GAME_CONFIG } from '../game/config'
+import { GAME_CONFIG } from '../data/config'
 
 /**
  * SpatialHashV2: 分层空间哈希 (基于项目原生 type 优化版)
