@@ -31,16 +31,38 @@ export const aiSystem = (delta: number) => {
 
     // 1. 低频决策逻辑：每 0.3 秒扫描一次，或者当当前目标死亡时立即重扫
     let currentTarget = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined
-    
-    // 紧急重扫判定：如果当前有目标但目标已死，则打破 0.3s 周期立即重扫
     const needsImmediateRescan = currentTarget && currentTarget.dead
+
+    // 获取玩家引用 (保镖逻辑需要)
+    const player = world.entities.find(e => e.id === 'player-main');
+    const isAlly = entity.type === 'ally';
 
     if (isTickFrame || needsImmediateRescan) {
       const nearest = findNearestHostile(entity)
-      // 重新获取一次，因为可能在 needsImmediateRescan 逻辑中需要最新的引用
       currentTarget = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined
 
-      if (nearest) {
+      if (isAlly && player) {
+        // --- 友军/保镖特殊索敌逻辑 ---
+        const distToPlayerSq = (entity.position.x - player.position.x) ** 2 + (entity.position.z - player.position.z) ** 2;
+        const leashDistSq = GAME_CONFIG.PHYSICS.ALLY_LEASH_DISTANCE ** 2;
+
+        if (distToPlayerSq > leashDistSq) {
+          // 强制回归：太远了，放弃任何目标
+          entity.ai.targetId = undefined;
+        } else if (nearest) {
+          // 在允许范围内，检查最近敌人是否也在玩家的保护圈内
+          const enemyDistToPlayerSq = (nearest.position.x - player.position.x) ** 2 + (nearest.position.z - player.position.z) ** 2;
+          const combatRadiusSq = GAME_CONFIG.PHYSICS.ALLY_COMBAT_RADIUS ** 2;
+
+          if (enemyDistToPlayerSq < combatRadiusSq) {
+            entity.ai.targetId = nearest.id;
+          } else if (!currentTarget || currentTarget.dead) {
+            // 如果当前没目标，且最近敌人太远，则不主动出击
+            entity.ai.targetId = undefined;
+          }
+        }
+      } else if (nearest) {
+        // --- 普通敌人索敌逻辑 ---
         if (!currentTarget || currentTarget.dead) {
           entity.ai.targetId = nearest.id
         } else {
@@ -64,6 +86,7 @@ export const aiSystem = (delta: number) => {
     const target = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined;
 
     if (target && !target.dead) {
+      // 攻击/追逐目标逻辑
       const dx = target.position.x - entity.position.x
       const dz = target.position.z - entity.position.z
       const distSq = dx * dx + dz * dz
@@ -76,12 +99,30 @@ export const aiSystem = (delta: number) => {
         entity.moveIntent.x = dx / dist
         entity.moveIntent.z = dz / dist
       } else {
-        // 到达攻击范围，停止移动
         entity.moveIntent.x = 0
         entity.moveIntent.z = 0
       }
+    } else if (isAlly && player) {
+      // --- 保镖跟随逻辑 (无战斗目标时) ---
+      const dx = player.position.x - entity.position.x;
+      const dz = player.position.z - entity.position.z;
+      const distSq = dx * dx + dz * dz;
+      
+      const idleRadius = GAME_CONFIG.PHYSICS.ALLY_IDLE_RADIUS;
+      // 增加一点随机偏移，防止所有保镖重叠在一点
+      const personalSpace = 1.5 + (entity.id.charCodeAt(0) % 5) * 0.5; 
+      
+      if (distSq > (idleRadius + personalSpace) ** 2) {
+        const dist = Math.sqrt(distSq);
+        // 向玩家方向移动，但保持一点距离
+        entity.moveIntent.x = dx / dist;
+        entity.moveIntent.z = dz / dist;
+      } else {
+        entity.moveIntent.x = 0;
+        entity.moveIntent.z = 0;
+      }
     } else {
-      // 目标丢失或死亡，停止移动并清除目标 ID
+      // 目标丢失或死亡，停止移动
       entity.moveIntent.x = 0
       entity.moveIntent.z = 0
       entity.ai.targetId = undefined;

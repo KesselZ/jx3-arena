@@ -3,6 +3,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useEntities } from 'miniplex-react'
 import { useFrame } from '@react-three/fiber'
+import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing'
 
 import { useGameStore } from '../store/useGameStore'
 import { createPlayer } from '../entities/player'
@@ -245,6 +246,35 @@ export function BattleWorld() {
 
   useBattleSystems(keys, currentWave)
 
+  const dofRef = useRef<any>(null)
+
+  useFrame((state) => {
+    if (!dofRef.current) return
+    
+    // 1. 找到主角
+    const player = world.entities.find(e => e.id === 'player-main')
+    if (!player) return
+
+    // 2. 计算相机到主角目标的距离 (对齐 TPSCamera 的 1.2m 头部偏移)
+    const distance = state.camera.position.distanceTo(_v1.set(player.position.x, (player.position.y || 0) + 1.2, player.position.z))
+    
+    // 3. 将物理距离转换为 0-1 的 focusDistance
+    // 关键修正：PerspectiveCamera 的深度是非线性的
+    // 公式参考：(far / (far - near)) * (1.0 - (near / distance))
+    const far = state.camera.far;
+    const near = state.camera.near;
+    const targetFocus = (far / (far - near)) * (1.0 - (near / distance));
+    
+    // 4. 直接更新 uniform
+    if (dofRef.current.circleOfConfusionMaterial) {
+      dofRef.current.circleOfConfusionMaterial.uniforms.focusDistance.value = THREE.MathUtils.lerp(
+        dofRef.current.circleOfConfusionMaterial.uniforms.focusDistance.value,
+        targetFocus,
+        0.1
+      )
+    }
+  })
+
   useEffect(() => {
     if (!selectedCharacter) return
     const initGame = async () => {
@@ -269,21 +299,13 @@ export function BattleWorld() {
         createNPC(waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)], 'enemy', spawnPos.x, spawnPos.z)
       }
 
-      // --- 新增：初始化观众 ---
-      const { x: bx, z: bz } = GAME_CONFIG.BATTLE.SCREEN_BOUNDS
-      const standConfigs = [
-        { center: [0, bz + 75], range: [bx * 2 + 100, 50] }, 
-        { center: [0, -bz - 75], range: [bx * 2 + 100, 50] }, 
-        { center: [bx + 75, 0], range: [50, bz * 2 + 100] }, 
-        { center: [-bx - 75, 0], range: [50, bz * 2 + 100] }, 
-      ]
-
-      standConfigs.forEach(stand => {
+      // --- 新增：初始化观众 (基于 ARENA 统一配置) ---
+      GAME_CONFIG.ARENA.STANDS.forEach(stand => {
         for (let i = 0; i < 20; i++) {
-          const rx = (Math.random() - 0.5) * stand.range[0] + stand.center[0]
-          const rz = (Math.random() - 0.5) * stand.range[1] + stand.center[1]
-          const level = Math.floor(Math.random() * 8)
-          const ry = -2 + (level * 3) + 1.5 
+          const rx = (Math.random() - 0.5) * stand.size[0] + stand.center[0]
+          const rz = (Math.random() - 0.5) * stand.size[2] + stand.center[2] // 修正：center[2] 才是 Z 轴坐标
+          const level = Math.floor(Math.random() * GAME_CONFIG.ARENA.LEVEL_COUNT)
+          const ry = GAME_CONFIG.ARENA.BASE_Y + (level * GAME_CONFIG.ARENA.LEVEL_HEIGHT) + 1.5 
           createSpectator('bandit', rx, ry, rz)
         }
       })
@@ -299,6 +321,24 @@ export function BattleWorld() {
       <Stage />
       <Entities />
       <VFXManager />
+
+      {/* 后期处理效果 */}
+      <EffectComposer disableNormalPass>
+        <Bloom 
+          intensity={1.5}          // 提高强度，让火炬更亮
+          luminanceThreshold={1.0} // 极大提高阈值，防止地面泛白
+          luminanceSmoothing={0.05} 
+          mipmapBlur               
+        />
+        {/* 暂时关闭景深效果
+        <DepthOfField 
+          ref={dofRef}
+          focusDistance={0.025}    
+          focalLength={0.01}       
+          bokehScale={1.0}         
+        /> 
+        */}
+      </EffectComposer>
     </>
   )
 }

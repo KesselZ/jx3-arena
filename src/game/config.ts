@@ -36,6 +36,23 @@ export const GAME_CONFIG = {
     MOMENTUM_TRANSFER: 0.6,    // 动量传递比例 (保龄球效果)
     TARGET_STICKY_DISTANCE: 3, // 索敌粘滞距离 (米)
     AI_TICK_RATE: 0.3,         // AI 决策频率 (秒)
+    // 友军/保镖 AI 相关
+    ALLY_LEASH_DISTANCE: 20,   // 强制回归距离
+    ALLY_COMBAT_RADIUS: 12,     // 战斗半径
+    ALLY_IDLE_RADIUS: 5,       // 闲置跟随半径
+  },
+
+  // 竞技场布局相关
+  ARENA: {
+    STANDS: [
+      { id: 'north', center: [0, 0, 110], size: [940, 20, 100] }, // 基于 bx=35, bz=35 计算: (bx*2+150)*2 = 440*2 = 880? 不对，原代码是 (bx*2+150)*2
+      { id: 'south', center: [0, 0, -110], size: [940, 20, 100] },
+      { id: 'east', center: [110, 0, 0], size: [100, 20, 940] },
+      { id: 'west', center: [-110, 0, 0], size: [100, 20, 940] },
+    ],
+    LEVEL_HEIGHT: 3,
+    LEVEL_COUNT: 10,
+    BASE_Y: -2,
   },
   
   // 关卡/波次配置
@@ -77,11 +94,11 @@ export const GAME_CONFIG = {
   // 环境配置 (支持多场景切换)
   THEMES: {
     'grassland': {
-      groundColor: '#d4b483', // 竞技场土黄色 (宣纸/夯土感)
-      gridColor: '#c4a473',   // 稍深的土色网格
-      skyColor: '#f5efe6',    // 暖白色天空
+      groundColor: '#d4b483', // 恢复为原本的土黄色 (宣纸/夯土感)
+      gridColor: '#c4a473',   
+      skyColor: '#f5efe6',    
       ambientIntensity: 0.6,  
-      fog: { color: '#f5efe6', near: 50, far: 200 } 
+      fog: { color: '#f5efe6', near: 100, far: 300 } 
     },
     'desert': {
       groundColor: '#e2bc8a', // 干燥沙土色
