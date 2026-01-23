@@ -156,11 +156,11 @@ export function Stage() {
               <cylinderGeometry args={[1.5, 0.6, 0.5, 8]} />
               <meshStandardMaterial color="#333" />
             </mesh>
-            {/* 增强光源：强度提升，珠子更大。注意：关闭 castShadow 以节省数千个 DrawCall */}
-            <pointLight position={[0, 11, 0]} intensity={80} color="#ffaa00" distance={150} />
+            {/* 增强光源：红色光源测试。注意：关闭 castShadow 以节省数千个 DrawCall */}
+            <pointLight position={[0, 11, 0]} intensity={1500} color="#ff0000" distance={300} decay={2} />
             <mesh position={[0, 11, 0]}>
               <sphereGeometry args={[1.2, 32, 32]} />
-              <meshStandardMaterial color="#ffffff" emissive="#ff6600" emissiveIntensity={15} />
+              <meshStandardMaterial color="#ffffff" emissive="#ff0000" emissiveIntensity={50} />
             </mesh>
           </group>
         ))}

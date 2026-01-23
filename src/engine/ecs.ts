@@ -90,6 +90,8 @@ export type Entity = {
   
   facingFlip?: boolean; // 新增：记忆实体的翻转状态
   visualFlip?: number;  // 新增：平滑渲染使用的翻转比例 (-1 到 1)
+  lastMoveX?: number;   // 新增：记录最后一次移动的世界坐标 X
+  lastMoveZ?: number;   // 新增：记录最后一次移动的世界坐标 Z
 }
 
 // 创建全局唯一的 ECS 世界

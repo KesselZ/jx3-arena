@@ -28,6 +28,20 @@ export const movementSystem = (delta: number) => {
       entity.position.x += intentX + entity.velocity.x * delta;
       entity.position.z += intentZ + entity.velocity.z * delta;
 
+      // 5. 物理安全：限制物理速度上限，防止叠加爆炸
+      Physics.limitVelocity(entity.velocity, 50); // 限制最大物理速度为 50
+
+      // 6. 逻辑朝向判定：记录世界坐标系的移动方向
+      // 判定优先级：移动意图 > 物理速度
+      const intentSpeedSq = entity.moveIntent.x ** 2 + entity.moveIntent.z ** 2;
+      const physicalSpeedSq = entity.velocity.x ** 2 + entity.velocity.z ** 2;
+
+      if (intentSpeedSq > 0.01 || physicalSpeedSq > 0.25) {
+        // 记录原始的世界坐标系移动向量，渲染层会结合相机视角来决定最终翻转
+        entity.lastMoveX = intentSpeedSq > 0.01 ? entity.moveIntent.x : entity.velocity.x;
+        entity.lastMoveZ = intentSpeedSq > 0.01 ? entity.moveIntent.z : entity.velocity.z;
+      }
+
       // 边界限制 (空气墙)
       if (entity.type === 'player') {
         entity.position.x = Math.max(-bx, Math.min(bx, entity.position.x))

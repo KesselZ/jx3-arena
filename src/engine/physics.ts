@@ -44,5 +44,17 @@ export const Physics = {
       return false;
     }
     return true;
+  },
+
+  /**
+   * 限制速度上限，防止数值爆炸
+   */
+  limitVelocity: (v: { x: number; y: number; z: number }, max: number) => {
+    const speedSq = v.x * v.x + v.z * v.z;
+    if (speedSq > max * max) {
+      const factor = max / Math.sqrt(speedSq);
+      v.x *= factor;
+      v.z *= factor;
+    }
   }
 };

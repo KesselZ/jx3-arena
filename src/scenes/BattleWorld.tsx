@@ -130,32 +130,22 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           _tempObj.quaternion.multiply(_quat)
         }
 
-        // 3. 处理朝向 (Facing)
-        const isRecentlyAttacking = timeSinceAttack < 0.3 
-        const velocity = entity.velocity || { x: 0, y: 0, z: 0 }
-        const physicalSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-
-        // 判定准则：攻击方向优先，其次是移动意图方向，最后是物理速度方向
-        if (isRecentlyAttacking || intentSpeed > 0.1 || physicalSpeed > 0.5) {
-          let sideDot = 0
-          if (isRecentlyAttacking) {
-            const angle = entity.lastAttackAngle || 0
-            sideDot = Math.sin(angle) * _camRight.x + Math.cos(angle) * _camRight.z
-          } else if (intentSpeed > 0.1) {
-            sideDot = moveIntent.x * _camRight.x + moveIntent.z * _camRight.z
-          } else {
-            sideDot = velocity.x * _camRight.x + velocity.z * _camRight.z
-          }
+        // 3. 处理朝向 (Facing) - 结合相机视角动态计算
+        // 只有当物体有移动倾向时才更新朝向
+        if (entity.lastMoveX !== undefined) {
+          // 计算移动向量在相机本地坐标系下的投影
+          // 我们需要知道移动向量是偏向相机的左边还是右边
+          const dotSide = entity.lastMoveX * _camRight.x + entity.lastMoveZ * _camRight.z
           
-          if (Math.abs(sideDot) > 0.1) {
-            entity.facingFlip = (unitDef.facing || 'right') === 'right' ? sideDot < 0 : sideDot > 0
+          if (Math.abs(dotSide) > 0.01) {
+            entity.facingFlip = (unitDef.facing || 'right') === 'right' ? dotSide < 0 : dotSide > 0
           }
         }
 
         // 平滑翻转动画：将中间值存回 entity
         if (entity.visualFlip === undefined) entity.visualFlip = entity.facingFlip ? -1 : 1
         entity.visualFlip = THREE.MathUtils.lerp(entity.visualFlip, entity.facingFlip ? -1 : 1, 0.25)
-
+        
         // 4. 处理受击效果 (Hit Flash)
         const timeSinceHit = entity.health ? currentTime - (entity.health.lastHitTime || 0) : 999
         if (entity.health && timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION) {
@@ -262,7 +252,17 @@ export function BattleWorld() {
       resetSpawner()
       world.clear() 
       createPlayer(selectedCharacter, 0, 0)
-      createNPC('ally_chunyang', 'ally', -2, -2)
+      
+      // --- 修改：增加 100 个友军站在主角旁边 ---
+      for (let i = 0; i < 100; i++) {
+        // 在主角周围随机分布，半径 2-8 米
+        const angle = Math.random() * Math.PI * 2
+        const radius = 2 + Math.random() * 6
+        const ax = Math.cos(angle) * radius
+        const az = Math.sin(angle) * radius
+        createNPC('ally_chunyang', 'ally', ax, az)
+      }
+
       const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
       for(let i=0; i<GAME_CONFIG.BATTLE.INITIAL_ENEMIES; i++) {
         const spawnPos = { x: (Math.random() - 0.5) * 30, z: (Math.random() - 0.5) * 20 }
