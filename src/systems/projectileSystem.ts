@@ -135,7 +135,8 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
   }
 
   // 2. 击退 (冲量)
-  if (target.velocity) {
+  // 核心修改：主角 (player) 不受击退影响
+  if (target.velocity && target.type !== 'player') {
     const knockbackMult = 2.0
     target.velocity.x += (projectile.velocity.x / p.speed) * knockbackMult
     target.velocity.z += (projectile.velocity.z / p.speed) * knockbackMult

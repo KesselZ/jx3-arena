@@ -32,7 +32,7 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
     physics: {
       damping: GAME_CONFIG.PHYSICS.DEFAULT_DAMPING,
       isGrounded: true,
-      mass: 5 // 主角质量较大
+      mass: 50 // 主角质量极大，增加操控感，防止被挤开 (原为 5)
     },
     // 玩家特有组件
     input: true, 

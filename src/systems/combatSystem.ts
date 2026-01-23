@@ -127,7 +127,8 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   const targetMass = target.physics?.mass || 1;
   const finalKnockback = kbPower / targetMass;
 
-  if (target.velocity) {
+  // 核心修改：主角 (player) 不受近战击退影响
+  if (target.velocity && target.type !== 'player') {
     target.velocity.x += nx * finalKnockback;
     target.velocity.z += nz * finalKnockback;
   }

@@ -88,7 +88,7 @@ export const GAME_CONFIG = {
     ANIM_BOUNCE_FREQ: 8,
     ANIM_BOUNCE_AMP: 0.12,
     ANIM_TILT_AMP: 0.08,
-    HIT_FLASH_DURATION: 0.15, // 延长受击变红时长，增加视觉反馈
+    HIT_FLASH_DURATION: 0.07, // 缩短受击闪烁时长 (原 0.15)
     FACING_FLIP_DURATION: 0.2, // 角色翻转动画时长 (秒)
     FACING_HYSTERESIS: 0.5,   // 意图过滤时长 (秒)
   },

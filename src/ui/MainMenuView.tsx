@@ -11,7 +11,7 @@ export const MainMenuView = () => {
         <div className="absolute -bottom-6 -right-6 w-12 h-12 border-b-4 border-r-4 border-jx3-gold"></div>
 
         <h1 className="text-5xl font-black text-jx3-ink mb-2 tracking-tighter drop-shadow-sm">
-          拯救古之岚
+          JX3 Arena
         </h1>
         <div className="h-1 w-32 bg-jx3-vermilion mb-8 animate-pixel-blink"></div>
         

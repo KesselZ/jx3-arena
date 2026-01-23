@@ -80,7 +80,7 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
       let hitScale = 1.0
 
       if (isDead) {
-        // 死亡动画逻辑
+        // 1. 死亡动画逻辑
         const p = Math.min(1, timeSinceDeath / deathDuration)
         const jumpHeight = (p * (1 - p) * 4) * GAME_CONFIG.BATTLE.DEATH_JUMP_HEIGHT 
         const forceX = (entity.deathDir?.x || 0) * p * GAME_CONFIG.BATTLE.DEATH_KNOCKBACK
@@ -99,15 +99,16 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         const r = baseScale * 0.5 
         const offsetY = Math.cos(fallZ) * r * Math.cos(tiltX)
         _tempObj.position.set(entity.position.x + forceX, entity.position.y + offsetY + jumpHeight, entity.position.z + forceZ)
-        _tempColor.setRGB(1, 1 - p, 1 - p)
+        
+        // 死亡颜色：更浓郁的暗红染色
+        _tempColor.setRGB(0.6, 0.1, 0.1)
       } else {
-        // 生存动画逻辑 (移动跳动、攻击冲刺等)
+        // 2. 生存动画逻辑
         const moveIntent = entity.moveIntent || { x: 0, y: 0, z: 0 }
         const intentSpeed = Math.sqrt(moveIntent.x ** 2 + moveIntent.z ** 2)
         
         let bounce = 0, tilt = 0
         if (intentSpeed > 0.1) {
-          // 动画频率只参考移动意图，不再受物理阻尼影响
           const t = (currentTime + (entity.animOffset || 0)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ
           bounce = Math.abs(Math.sin(t)) * GAME_CONFIG.VISUAL.ANIM_BOUNCE_AMP
           tilt = Math.sin(t) * GAME_CONFIG.VISUAL.ANIM_TILT_AMP
@@ -118,7 +119,6 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         const timeSinceAttack = currentTime - lastActiveAttackTime
         if (timeSinceAttack < GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION) {
           const p = timeSinceAttack / GAME_CONFIG.BATTLE.ATTACK_LUNGE_DURATION
-          // 视觉冲刺保留，但主要位移已由物理系统接管
           const strength = Math.sin(p * Math.PI) * (GAME_CONFIG.BATTLE.ATTACK_LUNGE_FORCE * 0.5)
           lungeX = Math.sin(entity.lastAttackAngle || 0) * strength
           lungeZ = Math.cos(entity.lastAttackAngle || 0) * strength
@@ -131,36 +131,36 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           _tempObj.quaternion.multiply(_quat)
         }
 
-        // 3. 处理朝向 (Facing) - 结合相机视角动态计算
-        // 只有当物体有移动倾向时才更新朝向
+        // 3. 翻转逻辑
         if (entity.lastMoveX !== undefined) {
-          // 计算移动向量在相机本地坐标系下的投影
-          // 我们需要知道移动向量是偏向相机的左边还是右边
           const dotSide = entity.lastMoveX * _camRight.x + entity.lastMoveZ * _camRight.z
           
-          if (Math.abs(dotSide) > 0.01) {
+          // --- 核心优化：打破中轴线感 (Per-instance Visual Deadzone) ---
+          // 利用实体的 animOffset (已有的随机值) 来产生一个每个实体唯一的“视觉偏好”
+          // threshold 会在 -0.15 到 0.15 之间波动
+          const bias = ((entity.animOffset || 0) % 1) * 0.3 - 0.15
+          
+          // 只有当投影值超过这个随机阈值时，才准许改变朝向意图
+          if (Math.abs(dotSide) > Math.abs(bias)) {
             entity.facingFlip = (unitDef.facing || 'right') === 'right' ? dotSide < 0 : dotSide > 0
           }
         }
 
-        // 平滑翻转动画：将中间值存回 entity (使用 delta 确保高刷屏一致性)
         if (entity.visualFlip === undefined) entity.visualFlip = entity.facingFlip ? -1 : 1
-        
         const targetFlip = entity.facingFlip ? -1 : 1
-        // 将时长转换为速度系数: speed = 4.6 / duration (4.6 是到达 99% 的系数)
         const flipSpeed = 4.6 / Math.max(0.01, GAME_CONFIG.VISUAL.FACING_FLIP_DURATION)
-        
-        // 使用 exp-lerp 公式: 1 - exp(-speed * dt)
-        // 这样无论帧率是多少，在固定时间内趋近目标的比例是相同的
         const lerpFactor = 1 - Math.exp(-flipSpeed * (currentTime - (entity.lastVisualUpdate || currentTime - 0.016)))
         entity.visualFlip = THREE.MathUtils.lerp(entity.visualFlip, targetFlip, Math.min(1, lerpFactor))
         entity.lastVisualUpdate = currentTime
         
         // 4. 处理受击效果 (Hit Flash)
         const timeSinceHit = entity.health ? currentTime - (entity.health.lastHitTime || 0) : 999
-        if (entity.health && timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION) {
+        // 只有非友军单位 (玩家和敌人) 受击时才会闪白
+        const shouldFlash = entity.type !== 'ally' && entity.health && timeSinceHit < GAME_CONFIG.VISUAL.HIT_FLASH_DURATION
+        
+        if (shouldFlash) {
+          _tempColor.setRGB(5.0, 5.0, 5.0) // 触发 Shader 浅白剪影
           const flashP = 1 - (timeSinceHit / GAME_CONFIG.VISUAL.HIT_FLASH_DURATION)
-          _tempColor.setRGB(1, 1 - flashP, 1 - flashP)
           hitScale = 1 + Math.sin(flashP * Math.PI) * 0.1
         }
       }
@@ -197,21 +197,21 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
       frustumCulled={false}
       geometry={geometry}
     >
-      <meshStandardMaterial 
+      <meshBasicMaterial 
         map={asset.texture} 
-        emissiveMap={asset.texture}
-        emissive={new THREE.Color(0xffffff)}
-        emissiveIntensity={0.8}
-        color={new THREE.Color(0x444444)}
         transparent 
         alphaTest={0.5} 
         side={THREE.DoubleSide} 
         onBeforeCompile={(shader) => {
           shader.fragmentShader = shader.fragmentShader.replace(
-            '#include <normal_fragment_begin>',
+            '#include <color_fragment>',
             `
-            #include <normal_fragment_begin>
-            normal = vec3(0.0, 0.0, 1.0);
+            #include <color_fragment>
+            // 纯白剪影模式 (受击)
+            // 使用 vColor.r > 4.0 作为触发阈值 (我们传入的是 5.0)
+            if (vColor.r > 4.0) {
+                diffuseColor.rgb = vec3(0.6, 0.6, 0.6); // 进一步调暗纯白剪影 (原 0.8)
+            } 
             `
           );
         }}
