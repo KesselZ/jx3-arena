@@ -25,6 +25,18 @@ export const GAME_CONFIG = {
     MELEE_VFX_PUSH: 0.8,       // 近战特效身前偏移
     MAX_INSTANCES_PER_TYPE: 1000, // 每种兵种的最大实例数 (同屏上限)
   },
+
+  // 物理模拟相关
+  PHYSICS: {
+    DEFAULT_DAMPING: 0.92,      // 默认阻尼 (0.9-0.95 较有滑行感)
+    STOP_THRESHOLD: 0.01,      // 速度低于此值时强制归零
+    GRAVITY: 20,               // 重力加速度
+    MAX_VELOCITY: 50,          // 最大物理速度限制
+    COLLISION_HARDNESS: 0.5,   // 基础碰撞硬度
+    MOMENTUM_TRANSFER: 0.6,    // 动量传递比例 (保龄球效果)
+    TARGET_STICKY_DISTANCE: 3, // 索敌粘滞距离 (米)
+    AI_TICK_RATE: 0.3,         // AI 决策频率 (秒)
+  },
   
   // 关卡/波次配置
   WAVES: {

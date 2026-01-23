@@ -1,37 +1,67 @@
-import { world, Entity, queries } from '../engine/ecs'
+import { world, Entity, queries, entityMap } from '../engine/ecs'
 import { findNearestHostile } from '../engine/targeting'
 import { GAME_CONFIG } from '../game/config'
 
 let aiFrameCounter = 0
 
 /**
- * AI 系统：控制怪物的移动行为
- * 优化点：分片更新 (Time Slicing)，每帧只处理 1/3 的实体
+ * AI 系统：控制角色的移动意图和索敌逻辑
+ * 优化点：
+ * 1. 分片更新 (Time Slicing)：每帧只处理 1/20 的实体进行重索敌决策 (约 0.33s 周期)
+ * 2. 目标粘滞性：新目标必须比旧目标近一定距离才切换，防止行为抽搐
+ * 3. O(1) 查找：利用 entityMap 替代 .find()，消除 O(N^2) 隐患
  */
 export const aiSystem = (delta: number) => {
+  const currentTime = performance.now() / 1000
   const entities = world.entities
-  aiFrameCounter++
 
-  // 设定索敌分片：每 10 帧为一个周期，错开更新
-  const TICK_CYCLE = 10
+  const TICK_RATE = GAME_CONFIG.PHYSICS.AI_TICK_RATE
+  const STICKY_DIST = GAME_CONFIG.PHYSICS.TARGET_STICKY_DISTANCE
 
   for (let i = 0; i < entities.length; i++) {
     const entity = entities[i]
-    if (!entity.ai || entity.ai.behavior !== 'chase' || !entity.velocity || entity.dead) continue
+    if (!entity.ai || entity.ai.behavior !== 'chase' || entity.dead) continue
 
-    // 1. 低频索敌逻辑：只有到了自己的“节奏点”才更新目标 ID
-    // 利用 (aiFrameCounter + i) 让不同实体的更新时机均匀分布
-    if ((aiFrameCounter + i) % TICK_CYCLE === 0) {
-      const nearestTarget = findNearestHostile(entity);
-      entity.ai.targetId = nearestTarget?.id;
+    // --- 核心优化：基于时间的错峰决策逻辑 ---
+    // 我们利用实体 ID 的哈希值（或简单取长度/字符码）来产生一个持久的偏移量
+    // 这样每个实体都会在 0.3s 周期内的不同时间点“睁眼”，彻底平滑 CPU 占用
+    const offset = (entity.id.charCodeAt(0) % 100) / 100 * TICK_RATE
+    const isTickFrame = Math.floor((currentTime + offset) / TICK_RATE) !== 
+                        Math.floor((currentTime - delta + offset) / TICK_RATE)
+
+    // 1. 低频决策逻辑：每 0.3 秒扫描一次，或者当当前目标死亡时立即重扫
+    let currentTarget = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined
+    
+    // 紧急重扫判定：如果当前有目标但目标已死，则打破 0.3s 周期立即重扫
+    const needsImmediateRescan = currentTarget && currentTarget.dead
+
+    if (isTickFrame || needsImmediateRescan) {
+      const nearest = findNearestHostile(entity)
+      // 重新获取一次，因为可能在 needsImmediateRescan 逻辑中需要最新的引用
+      currentTarget = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined
+
+      if (nearest) {
+        if (!currentTarget || currentTarget.dead) {
+          entity.ai.targetId = nearest.id
+        } else {
+          // 强粘滞性判定
+          const oldDx = currentTarget.position.x - entity.position.x
+          const oldDz = currentTarget.position.z - entity.position.z
+          const oldDistSq = oldDx * oldDx + oldDz * oldDz
+
+          const newDx = nearest.position.x - entity.position.x
+          const newDz = nearest.position.z - entity.position.z
+          const newDistSq = newDx * newDx + newDz * newDz
+          
+          if (Math.sqrt(newDistSq) < Math.sqrt(oldDistSq) - STICKY_DIST) {
+            entity.ai.targetId = nearest.id
+          }
+        }
+      }
     }
 
-    // 2. 高频移动逻辑：每一帧都根据当前目标更新速度，保证移动平滑
-    let target: Entity | undefined;
-    if (entity.ai.targetId) {
-      // 优化：先尝试从 queries 里的 combatants 找，比全局 find 快
-      target = queries.combatants.entities.find(e => e.id === entity.ai.targetId);
-    }
+    // 2. 高频移动逻辑：每一帧都根据当前确定的 targetId 更新移动意图，保证平滑
+    const target = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined;
 
     if (target && !target.dead) {
       const dx = target.position.x - entity.position.x
@@ -43,17 +73,17 @@ export const aiSystem = (delta: number) => {
       
       if (distSq > stopDistSq) {
         const dist = Math.sqrt(distSq)
-        // AI 只修改 moveIntent，不直接操作 velocity
         entity.moveIntent.x = dx / dist
         entity.moveIntent.z = dz / dist
       } else {
+        // 到达攻击范围，停止移动
         entity.moveIntent.x = 0
         entity.moveIntent.z = 0
       }
     } else {
+      // 目标丢失或死亡，停止移动并清除目标 ID
       entity.moveIntent.x = 0
       entity.moveIntent.z = 0
-      // 如果目标丢失（死亡或超出范围），清除目标 ID，等待下一个 TICK 重新索敌
       entity.ai.targetId = undefined;
     }
   }

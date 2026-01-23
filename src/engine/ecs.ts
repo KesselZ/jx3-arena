@@ -74,7 +74,7 @@ export type Entity = {
   
   ai?: { 
     behavior: 'chase' | 'flee' | 'idle'; 
-    targetId?: string 
+    targetId?: string;
   }
   input?: boolean
   stats?: { 
@@ -96,6 +96,19 @@ export type Entity = {
 
 // 创建全局唯一的 ECS 世界
 export const world = new World<Entity>()
+
+// --- 全局实体 ID 索引 (性能优化) ---
+// 允许以 O(1) 的复杂度根据 ID 查找实体，避免在系统循环中使用 .find()
+export const entityMap = new Map<string, Entity>()
+
+// 监听实体添加和移除，自动维护索引
+world.onEntityAdded.subscribe((entity) => {
+  entityMap.set(entity.id, entity)
+})
+
+world.onEntityRemoved.subscribe((entity) => {
+  entityMap.delete(entity.id)
+})
 
 // --- 预定义查询 (智能索引) ---
 // 这样在系统中就不需要每次 filter，框架会自动维护这些集合

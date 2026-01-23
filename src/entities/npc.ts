@@ -1,5 +1,6 @@
 import { world, Entity } from '../engine/ecs'
 import { UNITS } from '../data/units'
+import { GAME_CONFIG } from '../game/config'
 
 export const createNPC = (
   unitId: string, 
@@ -29,7 +30,7 @@ export const createNPC = (
       targetId: undefined 
     },
     physics: {
-      damping: 0.8,
+      damping: GAME_CONFIG.PHYSICS.DEFAULT_DAMPING,
       isGrounded: true,
       mass: 1
     },

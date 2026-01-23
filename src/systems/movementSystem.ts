@@ -10,7 +10,7 @@ export const movementSystem = (delta: number) => {
       
       // 1. 物理层：应用阻尼衰减 (Physics Engine 驱动)
       // 物理速度 (velocity) 会随时间自然停下
-      const damping = entity.physics?.damping || 0.8;
+      const damping = entity.physics?.damping ?? GAME_CONFIG.PHYSICS.DEFAULT_DAMPING;
       Physics.applyDamping(entity.velocity, damping, delta);
 
       // 2. 意图层：基础移动位移 (Intent * BaseSpeed)
@@ -20,8 +20,8 @@ export const movementSystem = (delta: number) => {
       const intentZ = entity.moveIntent.z * baseSpeed * delta;
 
       // 3. 物理层：重力与击飞处理
-      const gravity = 20; // 这里的重力数值可以根据手感调整
-      entity.physics = entity.physics || { damping: 0.8, isGrounded: true, mass: 1 };
+      const gravity = GAME_CONFIG.PHYSICS.GRAVITY;
+      entity.physics = entity.physics || { damping: GAME_CONFIG.PHYSICS.DEFAULT_DAMPING, isGrounded: true, mass: 1 };
       entity.physics.isGrounded = Physics.applyGravity(entity.position, entity.velocity, gravity, delta);
 
       // 4. 最终位移应用：意图位移 + 物理速度位移
@@ -29,7 +29,7 @@ export const movementSystem = (delta: number) => {
       entity.position.z += intentZ + entity.velocity.z * delta;
 
       // 5. 物理安全：限制物理速度上限，防止叠加爆炸
-      Physics.limitVelocity(entity.velocity, 50); // 限制最大物理速度为 50
+      Physics.limitVelocity(entity.velocity, GAME_CONFIG.PHYSICS.MAX_VELOCITY); 
 
       // 6. 逻辑朝向判定：记录世界坐标系的移动方向
       // 判定优先级：移动意图 > 物理速度

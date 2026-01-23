@@ -1,5 +1,6 @@
 import { queries } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
+import { GAME_CONFIG } from '../game/config'
 
 const COLLISION_CACHE: any[] = [] // 零分配缓存
 
@@ -56,7 +57,7 @@ export function collisionSystem() {
         // 增加动态硬度：如果一方速度极快（被击退中），碰撞硬度临时提高，确保能撞开人
         const velA = Math.sqrt(entity.velocity.x ** 2 + entity.velocity.z ** 2);
         const velB = Math.sqrt(other.velocity.x ** 2 + other.velocity.z ** 2);
-        const hardness = 0.5 + Math.max(velA, velB) * 0.1; 
+        const hardness = GAME_CONFIG.PHYSICS.COLLISION_HARDNESS + Math.max(velA, velB) * 0.1; 
         
         const pushPower = overlap * Math.min(hardness, 5.0); // 封顶硬度，防止数值爆炸
         
@@ -72,7 +73,7 @@ export function collisionSystem() {
         const velAlongNormal = rvx * nx + rvz * nz;
 
         if (velAlongNormal > 2.0) {
-            const momentumTransfer = 0.6; // 动量传递比例
+            const momentumTransfer = GAME_CONFIG.PHYSICS.MOMENTUM_TRANSFER; // 动量传递比例
             const impulse = velAlongNormal * momentumTransfer;
             
             entity.velocity.x -= impulse * nx * weightA;

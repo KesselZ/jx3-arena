@@ -1,6 +1,7 @@
 import { world, Entity } from '../engine/ecs'
 import { UNITS } from '../data/units'
 import { Assets } from '../assets/assets'
+import { GAME_CONFIG } from '../game/config'
 
 export const createPlayer = (unitId: string, x: number, z: number): Entity => {
   const unitDef = UNITS[unitId];
@@ -29,7 +30,7 @@ export const createPlayer = (unitId: string, x: number, z: number): Entity => {
       burstInterval: combat.burstInterval
     },
     physics: {
-      damping: 0.8,
+      damping: GAME_CONFIG.PHYSICS.DEFAULT_DAMPING,
       isGrounded: true,
       mass: 5 // 主角质量较大
     },
