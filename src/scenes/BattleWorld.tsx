@@ -49,23 +49,40 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
     return geo
   }, [asset?.width, asset?.height, asset?.anchorY])
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     if (!meshRef.current || !asset || !unitDef) return
     
     const currentTime = performance.now() / 1000
     const deathDuration = GAME_CONFIG.BATTLE.DEATH_DURATION
     const baseScale = unitDef.scale || 1.0
 
-    // 缓存相机数据，避免在循环中重复计算
+    // --- 性能优化：分帧更新 (Time Slicing) ---
+    // 对于观众(spectator)，我们不需要每帧都更新矩阵。
+    // 这里设置一个超参数，例如每 5 帧更新一次
+    const UPDATE_INTERVAL = 5 
+    const frameCount = Math.floor(clock.getElapsedTime() * 60) // 估算帧数
+    
+    // 缓存相机数据
     _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
     _camForward.set(0, 0, -1).applyQuaternion(camera.quaternion)
     _camForward.y = 0
     _camForward.normalize()
 
-    // 遍历所有实体进行“命令式”渲染更新
+    // 遍历所有实体进行更新
     for (let i = 0; i < entities.length; i++) {
       const entity = entities[i]
       if (!entity) continue
+      
+      const isSpectator = entity.type === 'spectator'
+      
+      // 核心逻辑：如果是观众，且没到更新帧，则跳过复杂的矩阵计算
+      // 利用 entity.id 的哈希值打破同步，让不同观众在不同帧更新，平摊 CPU 压力
+      if (isSpectator) {
+        const entityHash = parseInt(entity.id.slice(0, 8), 16) || 0
+        if ((frameCount + entityHash) % UPDATE_INTERVAL !== 0) {
+          continue 
+        }
+      }
       
       const isDead = !!entity.dead
       const timeSinceDeath = isDead ? currentTime - (entity.deathTime || 0) : 0
