@@ -2,7 +2,7 @@ import { PerspectiveCamera, Instances, Instance } from '@react-three/drei'
 import { useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useEntities } from 'miniplex-react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing'
 
 import { useGameStore } from '../store/useGameStore'
@@ -65,6 +65,7 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
     // 遍历所有实体进行“命令式”渲染更新
     for (let i = 0; i < entities.length; i++) {
       const entity = entities[i]
+      if (!entity) continue
       
       const isDead = !!entity.dead
       const timeSinceDeath = isDead ? currentTime - (entity.deathTime || 0) : 0
@@ -109,7 +110,6 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         _tempColor.setRGB(0.6, 0.1, 0.1)
       } else {
         // 2. 生存动画逻辑
-        // 2. 生存动画逻辑
         const moveIntent = entity.moveIntent || { x: 0, y: 0, z: 0 }
         const intentSpeed = Math.sqrt(moveIntent.x ** 2 + moveIntent.z ** 2)
         
@@ -137,20 +137,19 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           const squashCurve = Math.cos(t * 2)
           squash = -squashCurve * GAME_CONFIG.VISUAL.ANIM_SQUASH_AMP
         } else {
-          // 待机动画：呼吸起伏
-          const tIdle = tBase * GAME_CONFIG.VISUAL.IDLE_ANIM_FREQ
+          // 待机动画：呼吸起伏 / 观众欢呼
+          const isSpectator = entity.type === 'spectator'
+          const tIdle = tBase * (isSpectator ? 3.0 : GAME_CONFIG.VISUAL.IDLE_ANIM_FREQ)
           const idleSin = Math.sin(tIdle)
-          // 呼吸时，通过 squash 模拟高度变化，同时补偿 bounce 确保脚底不动
-          // 因为 Geometry 中心在 anchorY，scaleY 变化会导致上下两端都移动
-          // 我们需要计算出脚底移动的距离并抵消它
-          squash = idleSin * GAME_CONFIG.VISUAL.IDLE_ANIM_AMP
+          
+          // 性能优化：观众的缩放幅度稍微大一点，频率更快，模拟欢呼
+          const amp = isSpectator ? 0.12 : GAME_CONFIG.VISUAL.IDLE_ANIM_AMP
+          squash = idleSin * amp
           
           const anchorY = asset.anchorY // 0.5 是中点，>0.5 是偏下
           const visualHeight = baseScale
           const heightChange = visualHeight * squash
-          // 脚底相对于中心的偏移是 (anchorY - 0.5) * height
-          // 缩放导致的脚底位移 = heightChange * (anchorY - 0.5)
-          // 我们需要反向移动 bounce 来抵消这个位移
+          // 核心：补偿位移，确保脚底不动
           bounce = heightChange * (anchorY - 0.5)
         }
 
@@ -164,7 +163,12 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           lungeZ = Math.cos(entity.lastAttackAngle || 0) * strength
         }
 
-        _tempObj.position.set(entity.position.x + lungeX, (entity.position.y || 0) + bounce, entity.position.z + lungeZ)
+        // 观众体型增大：如果是观众，在渲染时应用额外的缩放倍率
+        const spectatorScaleMult = entity.type === 'spectator' ? 1.8 : 1.0
+        const finalScaleX = baseScale * (1 - squash) * spectatorScaleMult
+        const finalScaleY = baseScale * (1 + squash) * spectatorScaleMult
+
+        _tempObj.position.set(entity.position.x + lungeX, (entity.position.y || 0) + bounce * spectatorScaleMult, entity.position.z + lungeZ)
         
         if (tilt !== 0) {
           _quat.setFromAxisAngle(_zAxis, tilt)
@@ -203,32 +207,28 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
           const flashP = 1 - (timeSinceHit / GAME_CONFIG.VISUAL.HIT_FLASH_DURATION)
           hitScale = 1 + Math.sin(flashP * Math.PI) * 0.1
         }
+
+        // 5. 应用最终矩阵和颜色
+        const vFlip = entity.visualFlip ?? (entity.facingFlip ? -1 : 1)
+        _v1.set(vFlip * finalScaleX * hitScale, finalScaleY * hitScale, 1) 
+        _tempObj.matrix.compose(_tempObj.position, _tempObj.quaternion, _v1)
+        meshRef.current.setMatrixAt(i, _tempObj.matrix)
+        meshRef.current.setColorAt(i, _tempColor)
+        continue // 已经处理完，跳过下面的通用处理
       }
 
-      // 5. 应用最终矩阵和颜色
+      // 默认处理 (死亡等)
       const vFlip = entity.visualFlip ?? (entity.facingFlip ? -1 : 1)
-      
-      // 计算挤压拉伸后的缩放
-      // squash > 0 时：拉伸（Y变大，X变小）
-      // squash < 0 时：挤压（Y变小，X变大）
       const scaleY = baseScale * (1 + squash)
       const scaleX = baseScale * (1 - squash)
-      
-      _v1.set(vFlip * scaleX * hitScale, scaleY * hitScale, 1) // Reuse _v1 as scale
-      
-      // 使用 compose 替代 updateMatrix，性能更高且更直接
+      _v1.set(vFlip * scaleX * hitScale, scaleY * hitScale, 1) 
       _tempObj.matrix.compose(_tempObj.position, _tempObj.quaternion, _v1)
-      
       meshRef.current.setMatrixAt(i, _tempObj.matrix)
       meshRef.current.setColorAt(i, _tempColor)
     }
 
-    // 6. 核心优化：利用 mesh.count 限制渲染范围，不再每帧全量遍历空实例
+    // 6. 核心优化：利用 mesh.count 限制渲染范围
     meshRef.current.count = entities.length
-    
-    // 只有当实体数量减少时，才需要把多余的实例“藏起来”，防止下次 count 增加时闪现
-    // 这里可以做一个简单的阈值记录，或者在实体移除时处理，目前先保持 count 限制
-    
     meshRef.current.instanceMatrix.needsUpdate = true
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true
@@ -245,7 +245,7 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
       geometry={geometry}
     >
       <meshBasicMaterial 
-        map={asset.texture} 
+        map={asset?.texture || null} 
         transparent 
         alphaTest={0.5} 
         side={THREE.DoubleSide} 
@@ -255,9 +255,8 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
             `
             #include <color_fragment>
             // 纯白剪影模式 (受击)
-            // 使用 vColor.r > 4.0 作为触发阈值 (我们传入的是 5.0)
             if (vColor.r > 4.0) {
-                diffuseColor.rgb = vec3(0.6, 0.6, 0.6); // 进一步调暗纯白剪影 (原 0.8)
+                diffuseColor.rgb = vec3(0.6, 0.6, 0.6);
             } 
             `
           );
@@ -297,34 +296,24 @@ function Entities() {
  */
 export function BattleWorld() {
   const selectedCharacter = useGameStore((state) => state.selectedCharacter)
+  const arenaSeats = useGameStore((state) => state.arenaSeats)
   const currentWave = useGameStore((state) => state.wave)
   const keys = useKeyboard()
+  const scene = useThree(state => state.scene)
 
   useBattleSystems(keys, currentWave)
 
   const dofRef = useRef<any>(null)
 
   useFrame((state) => {
-    // 初始化声音系统 (只需执行一次)
     AudioAssets.init(state.camera);
-
     if (!dofRef.current) return
-    
-    // 1. 找到主角
     const player = world.entities.find(e => e.id === 'player-main')
     if (!player) return
-
-    // 2. 计算相机到主角目标的距离 (对齐 TPSCamera 的 1.2m 头部偏移)
     const distance = state.camera.position.distanceTo(_v1.set(player.position.x, (player.position.y || 0) + 1.2, player.position.z))
-    
-    // 3. 将物理距离转换为 0-1 的 focusDistance
-    // 关键修正：PerspectiveCamera 的深度是非线性的
-    // 公式参考：(far / (far - near)) * (1.0 - (near / distance))
     const far = state.camera.far;
     const near = state.camera.near;
     const targetFocus = (far / (far - near)) * (1.0 - (near / distance));
-    
-    // 4. 直接更新 uniform
     if (dofRef.current.circleOfConfusionMaterial) {
       dofRef.current.circleOfConfusionMaterial.uniforms.focusDistance.value = THREE.MathUtils.lerp(
         dofRef.current.circleOfConfusionMaterial.uniforms.focusDistance.value,
@@ -336,7 +325,6 @@ export function BattleWorld() {
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      // 只有左键(0)或右键(2)按下时触发
       if (e.button === 0 || e.button === 2) {
         document.body.classList.add('is-grabbing')
       }
@@ -344,12 +332,9 @@ export function BattleWorld() {
     const handleMouseUp = () => {
       document.body.classList.remove('is-grabbing')
     }
-
     window.addEventListener('mousedown', handleMouseDown)
     window.addEventListener('mouseup', handleMouseUp)
-    // 额外处理：如果鼠标移出窗口也重置状态
     window.addEventListener('blur', handleMouseUp)
-
     return () => {
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mouseup', handleMouseUp)
@@ -370,20 +355,43 @@ export function BattleWorld() {
       world.clear() 
       createPlayer(selectedCharacter, 0, 0)
       
-      // 观众始终生成
-      GAME_CONFIG.ARENA.STANDS.forEach(stand => {
-        for (let i = 0; i < 20; i++) {
-          const rx = (Math.random() - 0.5) * stand.size[0] + stand.center[0]
-          const rz = (Math.random() - 0.5) * stand.size[2] + stand.center[2]
-          const level = Math.floor(Math.random() * GAME_CONFIG.ARENA.LEVEL_COUNT)
-          const ry = GAME_CONFIG.ARENA.BASE_Y + (level * GAME_CONFIG.ARENA.LEVEL_HEIGHT) + 1.5 
-          createSpectator('bandit', rx, ry, rz)
+      // --- 高级架构设计：精准环形采样 + 射线高度测量 ---
+      const raycaster = new THREE.Raycaster()
+      const down = new THREE.Vector3(0, -1, 0)
+      
+      // 1. 确定禁区边界：扩大到正负 60
+      const EXCLUSION_ZONE = 60
+      const SAMPLE_MAX = 160 
+      const SPECTATOR_COUNT = 3000 
+      const SPECTATOR_POOL = ['bandit', 'archer', 'ally_chunyang', 'player_tiance', 'player_wanhua'] 
+      
+      scene.updateMatrixWorld(true)
+      const arenaStands = scene.getObjectByName("arena-stands")
+      const ground = scene.getObjectByName("ground-plane")
+      const targets = [ground, arenaStands].filter(Boolean) as THREE.Object3D[]
+      
+      let count = 0
+      let attempts = 0
+      while (count < SPECTATOR_COUNT && attempts < 15000) {
+        attempts++
+        const rx = (Math.random() - 0.5) * SAMPLE_MAX * 2
+        const rz = (Math.random() - 0.5) * SAMPLE_MAX * 2
+        if (Math.abs(rx) < EXCLUSION_ZONE && Math.abs(rz) < EXCLUSION_ZONE) continue
+        
+        raycaster.set(new THREE.Vector3(rx, 150, rz), down)
+        const intersects = raycaster.intersectObjects(targets, true)
+        if (intersects.length > 0) {
+          const hit = intersects[0]
+          if (hit.point.y > 30) continue 
+          const randomUnitId = SPECTATOR_POOL[Math.floor(Math.random() * SPECTATOR_POOL.length)]
+          createSpectator(randomUnitId, hit.point.x, hit.point.y, hit.point.z)
+          count++
         }
-      })
+      }
     };
     initGame();
     return () => world.clear()
-  }, [selectedCharacter])
+  }, [selectedCharacter, scene])
 
   return (
     <>
@@ -392,23 +400,8 @@ export function BattleWorld() {
       <Stage />
       <Entities />
       <VFXManager />
-
-      {/* 后期处理效果 */}
       <EffectComposer disableNormalPass>
-        <Bloom 
-          intensity={1.5}          // 提高强度，让火炬更亮
-          luminanceThreshold={1.0} // 极大提高阈值，防止地面泛白
-          luminanceSmoothing={0.05} 
-          mipmapBlur               
-        />
-        {/* 暂时关闭景深效果
-        <DepthOfField 
-          ref={dofRef}
-          focusDistance={0.025}    
-          focalLength={0.01}       
-          bokehScale={1.0}         
-        /> 
-        */}
+        <Bloom intensity={1.5} luminanceThreshold={1.0} luminanceSmoothing={0.05} mipmapBlur />
       </EffectComposer>
     </>
   )

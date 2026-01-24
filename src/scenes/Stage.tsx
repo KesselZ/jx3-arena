@@ -2,10 +2,11 @@ import { Sky, ContactShadows, Environment, Float, Image } from '@react-three/dre
 import { useGameStore } from '../store/useGameStore'
 import { GAME_CONFIG } from '../data/config'
 import * as THREE from 'three'
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 
 export function Stage() {
   const themeKey = useGameStore((state) => state.theme)
+  const setArenaSeats = useGameStore((state) => state.setArenaSeats)
   const theme = GAME_CONFIG.THEMES[themeKey]
   const { x: bx, z: bz } = GAME_CONFIG.BATTLE.SCREEN_BOUNDS
 
@@ -97,6 +98,7 @@ export function Stage() {
     return { geometry: geo }
   }, [theme.groundColor, bx, bz])
 
+  // 3. 核心技术点：席位锚点采集 (已移除，改用更可靠的射线检测法)
   return (
     <>
       {/* 1. 基础环境 */}
@@ -153,27 +155,23 @@ export function Stage() {
         </mesh>
 
         {/* 【竞技场看台】 - 宏大的环绕式阶梯结构 (基于统一配置) */}
-        <group position={[0, GAME_CONFIG.ARENA.BASE_Y, 0]}>
+        <group name="arena-stands" position={[0, GAME_CONFIG.ARENA.BASE_Y, 0]}>
           {GAME_CONFIG.ARENA.STANDS.map((stand) => (
             <group key={stand.id} position={stand.center as [number, number, number]}>
-              {Array.from({ length: GAME_CONFIG.ARENA.LEVEL_COUNT }).map((_, level) => (
-                <mesh 
-                  key={level} 
-                  position={[0, level * GAME_CONFIG.ARENA.LEVEL_HEIGHT, 0]} 
-                  receiveShadow 
-                  castShadow
-                >
-                  <boxGeometry args={[
-                    stand.size[0] - (stand.center[0] !== 0 ? level * 8 : 0), 
-                    GAME_CONFIG.ARENA.LEVEL_HEIGHT, 
-                    stand.size[2] - (stand.center[2] !== 0 ? level * 8 : 0)
-                  ]} />
-                  <meshStandardMaterial 
-                    color={level % 2 === 0 ? "#2a1a0a" : "#1a0a00"} 
-                    roughness={1} 
-                  />
-                </mesh>
-              ))}
+              {Array.from({ length: GAME_CONFIG.ARENA.LEVEL_COUNT }).map((_, level) => {
+                const shrink = level * 8
+                const currentWidth = stand.size[0] - (stand.center[0] !== 0 ? shrink : 0)
+                const currentDepth = stand.size[2] - (stand.center[2] !== 0 ? shrink : 0)
+                
+                return (
+                  <group key={level} position={[0, level * GAME_CONFIG.ARENA.LEVEL_HEIGHT, 0]}>
+                    <mesh receiveShadow castShadow>
+                      <boxGeometry args={[currentWidth, GAME_CONFIG.ARENA.LEVEL_HEIGHT, currentDepth]} />
+                      <meshStandardMaterial color={level % 2 === 0 ? "#2a1a0a" : "#1a0a00"} roughness={1} />
+                    </mesh>
+                  </group>
+                )
+              })}
             </group>
           ))}
         </group>
@@ -208,7 +206,7 @@ export function Stage() {
         ))}
 
         {/* 外部视觉地面：海拔 -2，角色永远去不到的背景 */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+        <mesh name="ground-plane" rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
           <planeGeometry args={[2000, 2000]} />
           <meshStandardMaterial 
             color="#2a2520" // 换成深褐色，更有泥土/岩石感，而非死板的灰黑

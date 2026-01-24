@@ -162,7 +162,11 @@ function handleMeleeAttack(attacker: Entity, target: Entity, style: CombatStyle,
     const damage = attacker.attack!.power;
     target.health.current -= damage;
     target.health.lastHitTime = time;
-    spawnDamageText(damage, target.position);
+    
+    // 只有敌人掉血才触发伤害飘字
+    if (target.type === 'enemy') {
+      spawnDamageText(damage, target.position);
+    }
 
     // 播放命中音效 (使用 Style 定义的 hit 音效)
     const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;

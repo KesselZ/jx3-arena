@@ -55,7 +55,7 @@ export const UNITS: Record<string, UnitConfig> = {
       burstInterval: 0.1,
       projectile: {
         speed: 25,
-        pierce: 3,
+        pierce: 999,
         logic: 'tracking',
         lifeTime: 2.0
       }

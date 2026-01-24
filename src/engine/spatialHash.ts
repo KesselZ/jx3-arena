@@ -71,10 +71,6 @@ export class SpatialHash {
       this.l2Blackboard[l2Idx] += 0x00000001
     }
 
-    if (GAME_CONFIG.DEBUG && entity.type === 'player') {
-      console.log(`[SpatialHash] Player @(${entity.position.x.toFixed(1)}, ${entity.position.z.toFixed(1)}) -> L1Idx:${l1Idx}, totalFriendly:${this.totalFriendly}`);
-    }
-
     this.l1Cells[l1Idx].push(entity)
   }
 
@@ -94,10 +90,6 @@ export class SpatialHash {
     const eX2 = Math.floor(endX / this.L2_CELL_SIZE)
     const sZ2 = Math.floor(startZ / this.L2_CELL_SIZE)
     const eZ2 = Math.floor(endZ / this.L2_CELL_SIZE)
-
-    if (GAME_CONFIG.DEBUG && targetSide === 'friendly' && Math.random() < 0.01) {
-      console.log(`[SpatialHash] Querying friendly in range ${range} at (${x.toFixed(1)}, ${z.toFixed(1)}), totalFriendly: ${this.totalFriendly}`);
-    }
 
     for (let ix2 = sX2; ix2 <= eX2; ix2++) {
       for (let iz2 = sZ2; iz2 <= eZ2; iz2++) {

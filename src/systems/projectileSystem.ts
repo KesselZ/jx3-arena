@@ -128,8 +128,10 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
     target.health.current -= damage
     target.health.lastHitTime = performance.now() / 1000
     
-    // 生成伤害飘字
-    spawnDamageText(damage, target.position);
+    // 只有敌人掉血才触发伤害飘字
+    if (target.type === 'enemy') {
+      spawnDamageText(damage, target.position);
+    }
 
     // 播放受击音效 (声明式：使用 Style 定义的 hit 音效)
     const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;

@@ -59,6 +59,9 @@ interface GameState {
     vfx: number,
     total: number
   }
+  // 观众席位坐标 (由视觉层 Stage 填充)
+  arenaSeats: { x: number, y: number, z: number }[]
+  setArenaSeats: (seats: { x: number, y: number, z: number }[]) => void
   updateStats: (stats: { 
     fps: number, 
     frameTime: number, 
@@ -88,12 +91,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   triangles: 0,
   logicTime: 0,
   memory: { geometries: 0, textures: 0 },
+  arenaSeats: [],
 
   setPhase: (phase) => set({ phase }),
   setTheme: (theme) => set({ theme }),
   setSelectedCharacter: (unitId) => set({ selectedCharacter: unitId }),
   nextWave: () => set((state) => ({ wave: state.wave + 1 })),
   addGold: (amount) => set((state) => ({ gold: state.gold + amount })),
+  setArenaSeats: (seats) => set({ arenaSeats: seats }),
 
   startDialogue: (lines) => set({ 
     phase: 'CUTSCENE', 
