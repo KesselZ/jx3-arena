@@ -3,11 +3,13 @@ import { useGameStore } from './store/useGameStore'
 import { MainMenuView } from './ui/MainMenuView'
 import { BattlePage } from './ui/BattlePage'
 import { CharacterSelectView } from './ui/CharacterSelectView'
+import { PauseMenu } from './ui/PauseMenu'
 import { AudioAssets } from './assets/audioAssets'
 import * as THREE from 'three'
 
 function App() {
   const phase = useGameStore((state) => state.phase)
+  const togglePause = useGameStore((state) => state.togglePause)
 
   // 全局初始化 AudioListener
   useEffect(() => {
@@ -16,11 +18,29 @@ function App() {
     AudioAssets.init(dummyCamera);
   }, []);
 
+  // 全局键盘监听
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // 只有在战斗或剧情模式下才允许暂停
+        const currentPhase = useGameStore.getState().phase;
+        if (currentPhase === 'BATTLE' || currentPhase === 'CUTSCENE') {
+          togglePause();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePause]);
+
   return (
     <div className="w-full h-full bg-black">
       {phase === 'LOBBY' && <MainMenuView />}
       {phase === 'CHARACTER_SELECT' && <CharacterSelectView />}
       {(phase === 'BATTLE' || phase === 'CUTSCENE') && <BattlePage />}
+      
+      <PauseMenu />
       
       {/* 预留其他场景 */}
       {phase === 'SHOP' && (

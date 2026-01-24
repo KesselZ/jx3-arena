@@ -22,6 +22,9 @@ interface GameState {
   // 对话系统状态
   dialogueLines: DialogueLine[]
   currentDialogueIndex: number
+
+  // 暂停状态
+  isPaused: boolean
   
   // 动作
   setPhase: (phase: GamePhase) => void
@@ -37,6 +40,8 @@ interface GameState {
   
   // 声明式触发：根据触发点自动加载对话
   triggerDialogue: (triggerId: string) => void
+  togglePause: () => void
+  setPaused: (paused: boolean) => void
 
   // 性能监测数据
   fps: number
@@ -85,6 +90,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   dialogueLines: [],
   currentDialogueIndex: 0,
+  isPaused: false,
   
   fps: 0,
   frameTime: 0,
@@ -126,6 +132,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentDialogueIndex: 0
     };
   }),
+
+  togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
+  setPaused: (paused) => set({ isPaused: paused }),
 
   updateStats: (stats) => set((state) => ({ ...state, ...stats })),
 }))

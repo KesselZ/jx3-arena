@@ -33,6 +33,9 @@ export function useBattleSystems(keys: any, currentWave: number) {
   })
 
   useFrame((state, delta) => {
+    const isPaused = useGameStore.getState().isPaused
+    if (isPaused) return
+
     const frameStart = performance.now()
     let t: number
     

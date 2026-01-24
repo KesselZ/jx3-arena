@@ -14,6 +14,7 @@ import { Instances } from '@react-three/drei'
 import { VFXGroup } from './VFXBase'
 import { GAME_CONFIG } from '../data/config'
 import { Entity } from '../engine/ecs'
+import { useGameStore } from '../store/useGameStore'
 
 const _color = new THREE.Color()
 const _euler = new THREE.Euler()
@@ -197,8 +198,15 @@ export function SpawnWarningVFX({ entities }: { entities: Entity[] }) {
 
   useFrame(() => {
     if (!meshRef.current) return
+    const isPaused = useGameStore.getState().isPaused
+    
+    const now = isPaused 
+      ? (meshRef.current._lastTime || performance.now() / 1000)
+      : performance.now() / 1000
+    
+    meshRef.current._lastTime = now
+
     const count = entities.length
-    const now = performance.now() / 1000
 
     for (let i = 0; i < count; i++) {
       const entity = entities[i]
@@ -288,8 +296,15 @@ export function DamageTextVFX({ entities }: { entities: Entity[] }) {
 
   useFrame((state) => {
     if (!meshRef.current || !attrRef.current) return
+    const isPaused = useGameStore.getState().isPaused
+    
+    const now = isPaused 
+      ? (meshRef.current._lastTime || performance.now() / 1000)
+      : performance.now() / 1000
+    
+    meshRef.current._lastTime = now
+
     const count = Math.min(entities.length, 2000)
-    const now = performance.now() / 1000
 
     // 获取当前相机的右向量和上向量，用于对齐屏幕空间排版
     _right.set(1, 0, 0).applyQuaternion(state.camera.quaternion)

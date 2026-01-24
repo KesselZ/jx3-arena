@@ -16,6 +16,7 @@ import { Instances } from '@react-three/drei'
 import * as THREE from 'three'
 import { world } from '../engine/ecs'
 import { GAME_CONFIG } from '../data/config'
+import { useGameStore } from '../store/useGameStore'
 
 // 全局渲染临时对象
 const _tempObj = new THREE.Object3D()
@@ -45,7 +46,14 @@ export function VFXGroup({
   useFrame(() => {
     if (!meshRef.current) return
     
-    const now = performance.now() / 1000
+    const isPaused = useGameStore.getState().isPaused
+    
+    const now = isPaused 
+      ? (meshRef.current._lastTime || performance.now() / 1000)
+      : performance.now() / 1000
+    
+    meshRef.current._lastTime = now
+    
     const count = entities.length
 
     for (let i = 0; i < count; i++) {

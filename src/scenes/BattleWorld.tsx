@@ -52,7 +52,16 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
   useFrame(({ camera, clock }) => {
     if (!meshRef.current || !asset || !unitDef) return
     
-    const currentTime = performance.now() / 1000
+    const isPaused = useGameStore.getState().isPaused
+    // 暂停时，我们依然需要让 Instance 保持在最后的位置，所以不能直接 return
+    // 我们只在非暂停状态下更新逻辑时间，暂停时 currentTime 保持不变
+    
+    const currentTime = isPaused 
+      ? (meshRef.current._lastTime || performance.now() / 1000)
+      : performance.now() / 1000
+    
+    meshRef.current._lastTime = currentTime
+    
     const deathDuration = GAME_CONFIG.BATTLE.DEATH_DURATION
     const baseScale = unitDef.scale || 1.0
 
