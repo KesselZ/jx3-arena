@@ -95,11 +95,13 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
 
   // 1. 动作发起音效 (不再关心逻辑类型)
   const attackerPriority = attacker.type === 'player' ? SoundPriority.HIGH : SoundPriority.LOW;
-  AudioAssets.play(style.sfx.fire, { 
-    position: attacker.position, 
-    priority: attackerPriority,
-    sourceType: attacker.type as any
-  });
+  if (style.sfx?.fire) {
+    AudioAssets.play(style.sfx.fire, { 
+      position: attacker.position, 
+      priority: attackerPriority,
+      sourceType: attacker.type as any
+    });
+  }
 
   // 2. 逻辑分流
   if (style.logic === 'ranged') {

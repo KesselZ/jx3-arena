@@ -8,9 +8,9 @@ export interface CombatStyle {
   id: string;
   logic: 'melee' | 'ranged';
   hitInterval?: number; // 新增：该风格弹道的默认命中间隔 (秒)
-  sfx: {
-    fire: SoundID;    // 发起动作时的音效
-    hit: SoundID;     // 命中时的音效
+  sfx?: {
+    fire?: SoundID;    // 发起动作时的音效
+    hit?: SoundID;     // 命中时的音效
   };
   vfx: {
     type: 'slash' | 'arrow' | 'burst' | 'air_sword' | 'gold_coin';
@@ -49,7 +49,6 @@ export const COMBAT_STYLES: Record<string, CombatStyle> = {
     id: 'gold_coin',
     logic: 'ranged',
     hitInterval: 0.1, // 金币拾取间隔极短
-    sfx: { fire: 'CLICK_CLEAN', hit: 'CLICK_CLEAN' },
     vfx: { type: 'gold_coin' as any, duration: 10.0 }
   }
 };

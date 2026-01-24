@@ -40,6 +40,7 @@ export const SOUND_ASSETS = {
   TYPEWRITER: { path: '/audio/sources/文字气泡.mp3', is3D: false, volume: 0.4 },
   SUCCESS: { path: '/audio/click/胜利音效.mp3', is3D: false, volume: 0.7 },
   FAIL: { path: '/audio/click/战斗失败音效.mp3', is3D: false, volume: 0.7 },
+  COIN_PICKUP: { path: '/audio/sources/拿到一个金币.mp3', is3D: false, volume: 0.6 },
   
   // --- 场景 (3D/2D) ---
   WALK_GRASS: { 

@@ -178,8 +178,8 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
       projectile.money.collected = true;
       useGameStore.getState().addGold(projectile.money.amount);
       
-      // 播放清脆的金币音效
-      AudioAssets.play('CLICK_CLEAN', { 
+      // 播放专属的金币捡起音效
+      AudioAssets.play('COIN_PICKUP', { 
         position: target.position, 
         priority: SoundPriority.NORMAL 
       });
@@ -204,13 +204,15 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
 
     // 播放受击音效 (声明式：使用 Style 定义的 hit 音效)
     const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;
-    const hitSoundId = style?.sfx.hit || 'HIT_BODY';
+    const hitSoundId = style?.sfx?.hit;
     
-    AudioAssets.play(hitSoundId, { 
-      position: target.position, 
-      priority: hitPriority,
-      sourceType: target.type as any
-    });
+    if (hitSoundId) {
+      AudioAssets.play(hitSoundId, { 
+        position: target.position, 
+        priority: hitPriority,
+        sourceType: target.type as any
+      });
+    }
     
     if (target.health.current <= 0 && !target.dead) {
       target.dead = true

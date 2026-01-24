@@ -383,7 +383,7 @@ export function BattleWorld() {
 
       await Promise.all([
         Assets.preloadAll(),
-        AudioAssets.preload(['CLICK_CLEAN', 'SLASH', 'IMPACT', 'HIT_BODY'])
+        AudioAssets.preload(['COIN_PICKUP', 'SLASH', 'IMPACT', 'HIT_BODY'])
       ]);
       
       resetSpawner()
