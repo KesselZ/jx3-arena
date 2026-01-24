@@ -3,6 +3,7 @@ import { useGameStore } from '../store/useGameStore'
 import { Assets } from '../assets/assets'
 import { UNITS } from '../data/units'
 import { CHARACTER_UI_INFOS } from '../data/characterInfo'
+import { AudioAssets } from '../assets/audioAssets'
 
 /**
  * 2D 像素图标组件
@@ -48,9 +49,34 @@ export const CharacterSelectView = () => {
 
   const handleConfirm = () => {
     if (activeUnit) {
+      AudioAssets.play2D('CLICK_CONFIRM')
       setSelectedCharacter(activeUnit.id as any)
-      setPhase('BATTLE')
+      
+      // 触发剧情对话
+      const { startDialogue } = useGameStore.getState();
+      startDialogue([
+        { speaker: activeInfo.name, content: `我乃${activeInfo.sect}${activeInfo.name}，今日入此竞技场，定要领教一番！` },
+        { speaker: '神秘人', content: '呵呵，又来一个送死的。这里的规矩很简单：活下去。' },
+        { speaker: activeInfo.name, content: '废话少说，出招吧！' }
+      ]);
     }
+  }
+
+  const handleBack = () => {
+    AudioAssets.play2D('CLICK_PRESS')
+    setPhase('LOBBY')
+  }
+
+  const handleCharMouseEnter = (id: string) => {
+    if (hoveredId !== id) {
+      AudioAssets.play2D('CLICK_HOVER')
+      setHoveredId(id)
+    }
+  }
+
+  const handleCharClick = (id: string) => {
+    AudioAssets.play2D('CLICK_SELECT')
+    setLockedId(id)
   }
 
   return (
@@ -67,7 +93,7 @@ export const CharacterSelectView = () => {
           <p className="text-jx3-paper/40 text-[10px] font-bold tracking-widest uppercase mt-1">Select Your Hero To Enter The Arena</p>
         </div>
         <button 
-          onClick={() => setPhase('LOBBY')}
+          onClick={handleBack}
           className="px-6 py-2 bg-jx3-ink border border-jx3-gold/50 text-jx3-gold text-xs font-bold hover:bg-jx3-gold hover:text-jx3-ink transition-all"
         >
           返回营地
@@ -185,8 +211,8 @@ export const CharacterSelectView = () => {
               return (
                 <div 
                   key={char.id}
-                  onMouseEnter={() => setHoveredId(char.id)}
-                  onClick={() => setLockedId(char.id)}
+                  onMouseEnter={() => handleCharMouseEnter(char.id)}
+                  onClick={() => handleCharClick(char.id)}
                   className={`
                     w-20 h-20 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out border-2 relative
                     ${isLocked 

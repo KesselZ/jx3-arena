@@ -19,6 +19,7 @@ import { CameraSystem } from '../engine/camera/CameraSystem'
 import { useBattleSystems } from '../hooks/useBattleSystems'
 import { VFXManager } from '../vfx/VFXManager'
 import { Entity } from '../engine/ecs'
+import { AudioAssets } from '../assets/audioAssets'
 
 // --- 性能优化：在全局定义缓存对象，供所有 UnitTypeGroup 共享 ---
 const _v1 = new THREE.Vector3()
@@ -304,6 +305,9 @@ export function BattleWorld() {
   const dofRef = useRef<any>(null)
 
   useFrame((state) => {
+    // 初始化声音系统 (只需执行一次)
+    AudioAssets.init(state.camera);
+
     if (!dofRef.current) return
     
     // 1. 找到主角
@@ -357,32 +361,20 @@ export function BattleWorld() {
   useEffect(() => {
     if (!selectedCharacter) return
     const initGame = async () => {
-      await Assets.preloadAll();
+      await Promise.all([
+        Assets.preloadAll(),
+        AudioAssets.preload(['CLICK_CLEAN', 'SLASH', 'IMPACT', 'HIT_BODY'])
+      ]);
+      
       resetSpawner()
       world.clear() 
       createPlayer(selectedCharacter, 0, 0)
       
-      // --- 修改：增加 100 个友军站在主角旁边 ---
-      for (let i = 0; i < 100; i++) {
-        // 在主角周围随机分布，半径 2-8 米
-        const angle = Math.random() * Math.PI * 2
-        const radius = 2 + Math.random() * 6
-        const ax = Math.cos(angle) * radius
-        const az = Math.sin(angle) * radius
-        createNPC('ally_chunyang', 'ally', ax, az)
-      }
-
-      const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
-      for(let i=0; i<GAME_CONFIG.BATTLE.INITIAL_ENEMIES; i++) {
-        const spawnPos = { x: (Math.random() - 0.5) * 30, z: (Math.random() - 0.5) * 20 }
-        createNPC(waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)], 'enemy', spawnPos.x, spawnPos.z)
-      }
-
-      // --- 新增：初始化观众 (基于 ARENA 统一配置) ---
+      // 观众始终生成
       GAME_CONFIG.ARENA.STANDS.forEach(stand => {
         for (let i = 0; i < 20; i++) {
           const rx = (Math.random() - 0.5) * stand.size[0] + stand.center[0]
-          const rz = (Math.random() - 0.5) * stand.size[2] + stand.center[2] // 修正：center[2] 才是 Z 轴坐标
+          const rz = (Math.random() - 0.5) * stand.size[2] + stand.center[2]
           const level = Math.floor(Math.random() * GAME_CONFIG.ARENA.LEVEL_COUNT)
           const ry = GAME_CONFIG.ARENA.BASE_Y + (level * GAME_CONFIG.ARENA.LEVEL_HEIGHT) + 1.5 
           createSpectator('bandit', rx, ry, rz)
@@ -391,7 +383,7 @@ export function BattleWorld() {
     };
     initGame();
     return () => world.clear()
-  }, [selectedCharacter, currentWave])
+  }, [selectedCharacter])
 
   return (
     <>

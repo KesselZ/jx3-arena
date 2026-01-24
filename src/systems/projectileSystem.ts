@@ -2,6 +2,9 @@ import * as THREE from 'three'
 import { world, queries, Entity, entityMap, spawnDamageText } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
 import { GAME_CONFIG } from '../data/config'
+import { AudioAssets, SoundPriority } from '../assets/audioAssets'
+
+import { COMBAT_STYLES } from '../data/combatConfig'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
@@ -117,6 +120,7 @@ export function projectileSystem(dt: number) {
  */
 function applyProjectileHit(projectile: Entity, target: Entity) {
   const p = projectile.projectile!
+  const style = COMBAT_STYLES[p.styleId]; // 核心：读取声明式的风格配置
   
   // 1. 扣血
   if (target.health) {
@@ -126,6 +130,16 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
     
     // 生成伤害飘字
     spawnDamageText(damage, target.position);
+
+    // 播放受击音效 (声明式：使用 Style 定义的 hit 音效)
+    const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;
+    const hitSoundId = style?.sfx.hit || 'HIT_BODY';
+    
+    AudioAssets.play(hitSoundId, { 
+      position: target.position, 
+      priority: hitPriority,
+      sourceType: target.type as any
+    });
     
     if (target.health.current <= 0 && !target.dead) {
       target.dead = true

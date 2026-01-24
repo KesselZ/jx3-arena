@@ -1,3 +1,5 @@
+import { COMBAT_STYLES } from './combatConfig';
+
 export const SPRITE_SHEETS = {
   'enemy': { path: '/assets/enemies/enemy.png', rows: 4, cols: 4 },
   'player': { path: '/assets/characters/chunyang.png', rows: 4, cols: 4 },
@@ -16,15 +18,13 @@ export interface UnitConfig {
   scale: number;
   facing?: 'left' | 'right';
   combat: {
-    attackType: 'melee' | 'ranged';
-    vfxType: 'slash' | 'arrow' | 'burst' | 'air_sword';
+    styleId: keyof typeof COMBAT_STYLES; // 唯一起点：战斗风格 ID
     range: number;
-    speed: number; // 攻击速度 (每秒攻击次数)
-    power: number; // 攻击力
-    knockback: number; // 击退强度
-    burst?: number; // 连发次数 (例如 3 连发)
-    burstInterval?: number; // 连发间隔 (秒)
-    // 新增：弹道配置
+    speed: number; 
+    power: number; 
+    knockback: number; 
+    burst?: number; 
+    burstInterval?: number; 
     projectile?: {
       speed: number;
       pierce: number;
@@ -46,8 +46,7 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: true,
     scale: 1.5,
     combat: {
-      attackType: 'ranged',
-      vfxType: 'air_sword',
+      styleId: 'air_sword',
       range: 12.0,
       speed: 1.5,
       power: 20,
@@ -71,8 +70,7 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: true,
     scale: 1.6,
     combat: {
-      attackType: 'melee',
-      vfxType: 'slash',
+      styleId: 'slash',
       range: 0.5,
       speed: 1.2,
       power: 25,
@@ -90,8 +88,7 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: false,
     scale: 1.2,
     combat: {
-      attackType: 'melee',
-      vfxType: 'slash',
+      styleId: 'slash',
       range: 0.3,
       speed: 1.0,
       power: 10,
@@ -109,8 +106,7 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: false,
     scale: 1.2,
     combat: {
-      attackType: 'melee',
-      vfxType: 'slash',
+      styleId: 'slash',
       range: 0.3,
       speed: 1.2,
       power: 18,
@@ -126,14 +122,13 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: false,
     scale: 1.1,
     combat: {
-      attackType: 'ranged',
-      vfxType: 'arrow',
+      styleId: 'arrow',
       range: 10.0,
-      speed: 0.4, // 降低基础攻速，因为有连发
+      speed: 0.4, 
       power: 15,
       knockback: 0.5,
-      burst: 3, // 三连发
-      burstInterval: 0.15, // 连发间隔 0.15s
+      burst: 3, 
+      burstInterval: 0.15, 
       projectile: {
         speed: 20,
         pierce: 5,

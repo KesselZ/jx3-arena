@@ -1,16 +1,26 @@
+import React, { useEffect } from 'react'
 import { useGameStore } from './store/useGameStore'
 import { MainMenuView } from './ui/MainMenuView'
 import { BattlePage } from './ui/BattlePage'
 import { CharacterSelectView } from './ui/CharacterSelectView'
+import { AudioAssets } from './assets/audioAssets'
+import * as THREE from 'three'
 
 function App() {
   const phase = useGameStore((state) => state.phase)
+
+  // 全局初始化 AudioListener
+  useEffect(() => {
+    // 创建一个虚拟相机用于承载全局 UI 的 AudioListener
+    const dummyCamera = new THREE.PerspectiveCamera();
+    AudioAssets.init(dummyCamera);
+  }, []);
 
   return (
     <div className="w-full h-full bg-black">
       {phase === 'LOBBY' && <MainMenuView />}
       {phase === 'CHARACTER_SELECT' && <CharacterSelectView />}
-      {phase === 'BATTLE' && <BattlePage />}
+      {(phase === 'BATTLE' || phase === 'CUTSCENE') && <BattlePage />}
       
       {/* 预留其他场景 */}
       {phase === 'SHOP' && (

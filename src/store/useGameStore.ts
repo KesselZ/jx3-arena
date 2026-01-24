@@ -3,8 +3,13 @@ import { create } from 'zustand'
 import { UNITS } from '../data/units'
 import { GAME_CONFIG } from '../data/config'
 
-export type GamePhase = 'LOBBY' | 'CHARACTER_SELECT' | 'BATTLE' | 'SHOP' | 'GAMEOVER'
-export type GameTheme = keyof typeof GAME_CONFIG.THEMES
+export type GamePhase = 'LOBBY' | 'CHARACTER_SELECT' | 'CUTSCENE' | 'BATTLE' | 'SHOP' | 'GAMEOVER'
+
+export interface DialogueLine {
+  speaker: string;
+  content: string;
+  avatar?: string;
+}
 
 interface GameState {
   phase: GamePhase
@@ -13,12 +18,21 @@ interface GameState {
   gold: number
   selectedCharacter: string | null
   
+  // 对话系统状态
+  dialogueLines: DialogueLine[]
+  currentDialogueIndex: number
+  
   // 动作
   setPhase: (phase: GamePhase) => void
   setTheme: (theme: GameTheme) => void
   setSelectedCharacter: (unitId: string) => void
   nextWave: () => void
   addGold: (amount: number) => void
+
+  // 对话动作
+  startDialogue: (lines: DialogueLine[]) => void
+  nextDialogue: () => void
+  endDialogue: () => void
 
   // 性能监测数据
   fps: number
@@ -60,6 +74,9 @@ export const useGameStore = create<GameState>((set) => ({
   gold: 0,
   selectedCharacter: null,
   
+  dialogueLines: [],
+  currentDialogueIndex: 0,
+  
   fps: 0,
   frameTime: 0,
   drawCalls: 0,
@@ -72,5 +89,22 @@ export const useGameStore = create<GameState>((set) => ({
   setSelectedCharacter: (unitId) => set({ selectedCharacter: unitId }),
   nextWave: () => set((state) => ({ wave: state.wave + 1 })),
   addGold: (amount) => set((state) => ({ gold: state.gold + amount })),
+
+  startDialogue: (lines) => set({ 
+    phase: 'CUTSCENE', 
+    dialogueLines: lines, 
+    currentDialogueIndex: 0 
+  }),
+  
+  nextDialogue: () => set((state) => {
+    if (state.currentDialogueIndex < state.dialogueLines.length - 1) {
+      return { currentDialogueIndex: state.currentDialogueIndex + 1 };
+    } else {
+      return { phase: 'BATTLE', dialogueLines: [], currentDialogueIndex: 0 };
+    }
+  }),
+
+  endDialogue: () => set({ phase: 'BATTLE', dialogueLines: [], currentDialogueIndex: 0 }),
+
   updateStats: (stats) => set((state) => ({ ...state, ...stats })),
 }))

@@ -14,9 +14,8 @@ export type Attack = {
   power: number; 
   speed: number; 
   range: number; 
-  knockback: number; // 新增：攻击自带的击退强度
-  type: 'melee' | 'ranged';
-  vfxType: 'slash' | 'arrow' | 'burst'; // 明确攻击产生的特效类型
+  knockback: number; 
+  styleId: string; // 唯一起点：战斗风格 ID
   burst?: number;
   burstInterval?: number;
 }
@@ -51,17 +50,18 @@ export type Entity = {
   currentTargetId?: string; // 新增：当前锁定的目标 ID
   
   // 弹道逻辑组件
-  projectile?: {
-    damage: number;
-    speed: number;
-    pierce: number;
-    maxPierce: number;
-    ownerId: string;
-    targetId?: string; // 可选：用于追踪
-    hitEntities: Set<string>; // 记录已击中目标，防止重复伤害
-    lifeTime: number; // 剩余寿命（秒）
-  };
-  
+    projectile?: {
+      damage: number;
+      speed: number;
+      pierce: number;
+      maxPierce: number;
+      ownerId: string;
+      targetId?: string; 
+      hitEntities: Set<string>; 
+      lifeTime: number; 
+      styleId: string; // 新增：记录战斗风格 ID
+    };
+
   // 基础组件
   lifetime?: { remaining: number }; // 通用生命周期：倒计时结束自动销毁
   

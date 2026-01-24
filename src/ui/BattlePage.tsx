@@ -3,8 +3,10 @@ import { Suspense, useRef } from 'react'
 import * as THREE from 'three'
 import { BattleWorld } from '../scenes/BattleWorld'
 import { BattleHUD, PerformanceMonitor, HealthSync } from './BattleHUD'
+import { DialogueView } from './DialogueView'
 import { useEntities } from 'miniplex-react'
 import { queries } from '../engine/ecs'
+import { useGameStore } from '../store/useGameStore'
 
 /**
  * 顶层调度：BattlePage
@@ -15,6 +17,7 @@ export const BattlePage = () => {
   const textRef = useRef<HTMLSpanElement>(null)
   const { entities } = useEntities(queries.players)
   const player = entities[0]
+  const phase = useGameStore(state => state.phase)
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-jx3-ink">
@@ -31,8 +34,12 @@ export const BattlePage = () => {
         </Canvas>
       </div>
 
-      {/* 2. 2D 交互层 (HUD) */}
-      <BattleHUD barRef={barRef} textRef={textRef} />
+      {/* 2. 2D 交互层 (HUD / Dialogue) */}
+      {phase === 'CUTSCENE' ? (
+        <DialogueView />
+      ) : (
+        <BattleHUD barRef={barRef} textRef={textRef} />
+      )}
     </div>
   )
 }

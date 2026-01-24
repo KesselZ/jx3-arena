@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { world, Entity, spawnDamageText } from '../engine/ecs';
 import { findNearestHostile, findHero } from '../engine/targeting';
 import { UNITS } from '../data/units';
+import { AudioAssets, SoundPriority } from '../assets/audioAssets';
+import { COMBAT_STYLES, CombatStyle } from '../data/combatConfig';
 
 /**
  * 战斗系统：负责检测范围并触发攻击逻辑
@@ -86,48 +88,71 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
   const nx = adx / dist;
   const nz = adz / dist;
   
-  const isMelee = attacker.attack!.type === 'melee';
-  const vfxType = attacker.attack!.vfxType;
-  const unitDef = attacker.unitId ? (UNITS as any)[attacker.unitId] : null;
+  // --- 核心重构：声明式战斗风格 ---
+  const styleId = attacker.attack!.styleId;
+  const style = COMBAT_STYLES[styleId];
+  if (!style) return;
 
-  // --- 弹道发射逻辑 (远程攻击统一走弹道系统) ---
-  if (!isMelee && unitDef?.combat?.projectile) {
-    const pConfig = unitDef.combat.projectile;
-    const speed = pConfig.speed;
-    
-    const projectileEntity: Entity = {
-      id: 'projectile-' + (effectIdCounter++),
-      type: 'bullet',
-      position: { x: attacker.position.x, y: attacker.position.y + 1.2, z: attacker.position.z },
-      velocity: { x: nx * speed, y: 0, z: nz * speed },
-      moveIntent: { x: 0, y: 0, z: 0 },
-      health: { current: 1, max: 1 },
-      projectile: {
-        damage: attacker.attack!.power,
-        speed: speed,
-        pierce: pConfig.pierce,
-        maxPierce: pConfig.pierce,
-        ownerId: attacker.id,
-        targetId: pConfig.logic === 'tracking' ? target.id : undefined,
-        hitEntities: new Set(),
-        lifeTime: pConfig.lifeTime,
-      },
-      effect: {
-        type: vfxType as any,
-        startTime: time,
-        duration: pConfig.lifeTime,
-      }
-    };
-    world.add(projectileEntity);
-    return; // 远程攻击不再直接应用伤害
+  // 1. 动作发起音效 (不再关心逻辑类型)
+  const attackerPriority = attacker.type === 'player' ? SoundPriority.HIGH : SoundPriority.LOW;
+  AudioAssets.play(style.sfx.fire, { 
+    position: attacker.position, 
+    priority: attackerPriority,
+    sourceType: attacker.type as any
+  });
+
+  // 2. 逻辑分流
+  if (style.logic === 'ranged') {
+    handleRangedAttack(attacker, target, style, nx, nz, time);
+  } else {
+    handleMeleeAttack(attacker, target, style, nx, nz, time, dist, angle);
   }
+};
 
-  // --- 直接伤害逻辑 (仅限近战) ---
+/**
+ * 处理远程攻击逻辑
+ */
+function handleRangedAttack(attacker: Entity, target: Entity, style: CombatStyle, nx: number, nz: number, time: number) {
+  const unitDef = attacker.unitId ? (UNITS as any)[attacker.unitId] : null;
+  if (!unitDef?.combat?.projectile) return;
+
+  const pConfig = unitDef.combat.projectile;
+  const projectileEntity: Entity = {
+    id: `projectile-${attacker.id}-${performance.now()}`,
+    type: 'bullet',
+    position: { x: attacker.position.x, y: attacker.position.y + 1.2, z: attacker.position.z },
+    velocity: { x: nx * pConfig.speed, y: 0, z: nz * pConfig.speed },
+    moveIntent: { x: 0, y: 0, z: 0 },
+    health: { current: 1, max: 1 },
+    projectile: {
+      damage: attacker.attack!.power,
+      speed: pConfig.speed,
+      pierce: pConfig.pierce,
+      maxPierce: pConfig.pierce,
+      ownerId: attacker.id,
+      targetId: pConfig.logic === 'tracking' ? target.id : undefined,
+      hitEntities: new Set(),
+      lifeTime: pConfig.lifeTime,
+      styleId: style.id, // 核心：将战斗风格 ID 传递给弹道实体
+    },
+    effect: {
+      type: style.vfx.type as any,
+      startTime: time,
+      duration: pConfig.lifeTime,
+    }
+  };
+  world.add(projectileEntity);
+}
+
+/**
+ * 处理近战攻击逻辑
+ */
+function handleMeleeAttack(attacker: Entity, target: Entity, style: CombatStyle, nx: number, nz: number, time: number, dist: number, angle: number) {
+  // 1. 直接伤害逻辑
   const kbPower = attacker.attack!.knockback || 0;
   const targetMass = target.physics?.mass || 1;
   const finalKnockback = kbPower / targetMass;
 
-  // 核心修改：主角 (player) 不受近战击退影响
   if (target.velocity && target.type !== 'player') {
     target.velocity.x += nx * finalKnockback;
     target.velocity.z += nz * finalKnockback;
@@ -137,16 +162,21 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
     const damage = attacker.attack!.power;
     target.health.current -= damage;
     target.health.lastHitTime = time;
-    
-    // 生成伤害飘字
     spawnDamageText(damage, target.position);
+
+    // 播放命中音效 (使用 Style 定义的 hit 音效)
+    const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;
+    AudioAssets.play(style.sfx.hit, { 
+      position: target.position, 
+      priority: hitPriority,
+      sourceType: target.type as any
+    });
 
     if (target.health.current <= 0) {
       target.health.current = 0;
       target.dead = true;
       target.deathTime = time;
       target.deathDir = { x: nx, y: 0, z: nz };
-      
       delete target.ai;
       delete target.attack;
       delete target.input;
@@ -157,19 +187,18 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
     }
   }
 
-  // --- 产生特效 (找回近战特效) ---
-  const duration = isMelee ? 0.3 : 0.8;
+  // 2. 产生近战特效
   const effectData: Entity = {
-    id: `fx-${effectIdCounter++}`,
+    id: `fx-${performance.now()}-${Math.random()}`,
     type: 'effect',
     position: { x: attacker.position.x, y: attacker.position.y, z: attacker.position.z },
     velocity: { x: 0, y: 0, z: 0 },
     health: { current: 1, max: 1 },
-    lifetime: { remaining: duration },
+    lifetime: { remaining: style.vfx.duration },
     effect: {
-      type: vfxType as any,
+      type: style.vfx.type as any,
       startTime: time,
-      duration: duration, 
+      duration: style.vfx.duration, 
       angle: angle, 
       attackerPos: { ...attacker.position }, 
       targetPos: { ...target.position },
@@ -177,6 +206,5 @@ const performAttack = (attacker: Entity, target: Entity, time: number) => {
       length: dist
     }
   };
-
   world.add(effectData);
-};
+}

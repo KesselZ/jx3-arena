@@ -43,8 +43,7 @@ export const createNPC = (
       speed: combat.speed, 
       range: combat.range, 
       knockback: combat.knockback,
-      type: combat.attackType,
-      vfxType: combat.vfxType,
+      styleId: combat.styleId,
       burst: combat.burst,
       burstInterval: combat.burstInterval
     },

@@ -1,7 +1,13 @@
 import { useGameStore } from '../store/useGameStore'
+import { AudioAssets } from '../assets/audioAssets'
 
 export const MainMenuView = () => {
   const setPhase = useGameStore((state) => state.setPhase)
+
+  const handleStart = () => {
+    AudioAssets.play2D('CLICK_CLEAN');
+    setPhase('CHARACTER_SELECT');
+  };
 
   return (
     <div className="relative w-full h-full bg-jx3-ink overflow-hidden flex flex-col items-center justify-center p-12">
@@ -37,7 +43,7 @@ export const MainMenuView = () => {
       {/* 按钮区域：横向排布或大尺寸纵向 */}
       <div className="relative z-10 flex flex-row gap-8 items-center justify-center w-full max-w-4xl">
         <button
-          onClick={() => setPhase('CHARACTER_SELECT')}
+          onClick={handleStart}
           className="group relative px-12 py-6 bg-jx3-paper border-4 border-jx3-ink shadow-[8px_8px_0_0_rgba(212,175,55,0.3)] hover:shadow-[12px_12px_0_0_rgba(212,175,55,0.5)] hover:-translate-x-1 hover:-translate-y-1 active:translate-x-1 active:translate-y-1 transition-all"
         >
           <div className="absolute inset-1 border border-jx3-ink/10 pointer-events-none"></div>

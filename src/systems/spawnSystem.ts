@@ -1,9 +1,32 @@
 import { GAME_CONFIG } from '../data/config'
 import { createNPC } from '../entities/npc'
 import { UNITS } from '../data/units'
+import { useGameStore } from '../store/useGameStore'
 
 let lastSpawnTime = 0
 let totalSpawnedInWave = 0
+let initialSpawnDone = false;
+
+/**
+ * 初始单位生成逻辑
+ */
+const performInitialSpawn = (currentWave: number) => {
+  // 1. 补发 100 个友军
+  for (let i = 0; i < 100; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const radius = 2 + Math.random() * 6
+    const ax = Math.cos(angle) * radius
+    const az = Math.sin(angle) * radius
+    createNPC('ally_chunyang', 'ally', ax, az)
+  }
+
+  // 2. 补发初始敌人
+  const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
+  for(let i=0; i<GAME_CONFIG.BATTLE.INITIAL_ENEMIES; i++) {
+    const spawnPos = { x: (Math.random() - 0.5) * 30, z: (Math.random() - 0.5) * 20 }
+    createNPC(waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)], 'enemy', spawnPos.x, spawnPos.z)
+  }
+}
 
 /**
  * 刷怪系统：根据当前波次池随机生成敌人
@@ -13,6 +36,17 @@ export const spawnSystem = (
   elapsedTime: number, 
   currentWave: number
 ) => {
+  // 剧情模式下不刷怪
+  const { phase } = useGameStore.getState();
+  if (phase === 'CUTSCENE') return;
+
+  // 如果还没进行初始生成，先执行初始生成
+  if (!initialSpawnDone) {
+    performInitialSpawn(currentWave);
+    initialSpawnDone = true;
+    return;
+  }
+
   // 获取当前波次配置
   const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
   
@@ -41,6 +75,7 @@ export const spawnSystem = (
 export const resetSpawner = () => {
   lastSpawnTime = 0
   totalSpawnedInWave = 0
+  initialSpawnDone = false
 }
 
 /**
