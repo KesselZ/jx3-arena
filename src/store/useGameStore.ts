@@ -33,6 +33,9 @@ interface GameState {
   startDialogue: (lines: DialogueLine[]) => void
   nextDialogue: () => void
   endDialogue: () => void
+  
+  // 声明式触发：根据触发点自动加载对话
+  triggerDialogue: (triggerId: string) => void
 
   // 性能监测数据
   fps: number
@@ -67,7 +70,9 @@ interface GameState {
   }) => void
 }
 
-export const useGameStore = create<GameState>((set) => ({
+import { DIALOGUES } from '../data/dialogues'
+
+export const useGameStore = create<GameState>((set, get) => ({
   phase: 'LOBBY',
   theme: 'grassland',
   wave: 1,
@@ -105,6 +110,16 @@ export const useGameStore = create<GameState>((set) => ({
   }),
 
   endDialogue: () => set({ phase: 'BATTLE', dialogueLines: [], currentDialogueIndex: 0 }),
+
+  triggerDialogue: (triggerId) => set((state) => {
+    // 目前 triggerId 主要是角色 ID，未来可以扩展为 'WAVE_10' 等
+    const lines = DIALOGUES[triggerId] || DIALOGUES.ARENA_START;
+    return {
+      phase: 'CUTSCENE',
+      dialogueLines: lines,
+      currentDialogueIndex: 0
+    };
+  }),
 
   updateStats: (stats) => set((state) => ({ ...state, ...stats })),
 }))

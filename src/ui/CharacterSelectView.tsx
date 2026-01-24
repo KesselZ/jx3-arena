@@ -4,6 +4,7 @@ import { Assets } from '../assets/assets'
 import { UNITS } from '../data/units'
 import { CHARACTER_UI_INFOS } from '../data/characterInfo'
 import { AudioAssets } from '../assets/audioAssets'
+import { DIALOGUES } from '../data/dialogues'
 
 /**
  * 2D 像素图标组件
@@ -52,13 +53,9 @@ export const CharacterSelectView = () => {
       AudioAssets.play2D('CLICK_CONFIRM')
       setSelectedCharacter(activeUnit.id as any)
       
-      // 触发剧情对话
-      const { startDialogue } = useGameStore.getState();
-      startDialogue([
-        { speaker: activeInfo.name, content: `我乃${activeInfo.sect}${activeInfo.name}，今日入此竞技场，定要领教一番！` },
-        { speaker: '神秘人', content: '呵呵，又来一个送死的。这里的规矩很简单：活下去。' },
-        { speaker: activeInfo.name, content: '废话少说，出招吧！' }
-      ]);
+      // 声明式触发：我只想开始这个角色的剧情，具体内容由 Store 决定
+      const { triggerDialogue } = useGameStore.getState();
+      triggerDialogue(activeUnit.id);
     }
   }
 
