@@ -13,7 +13,7 @@ import { useFrame } from '@react-three/fiber'
 import { Instances } from '@react-three/drei'
 import { VFXGroup } from './VFXBase'
 import { GAME_CONFIG } from '../data/config'
-import { Entity } from '../engine/ecs'
+import { Entity, entityMap } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
 
 const _color = new THREE.Color()
@@ -197,9 +197,23 @@ export function GoldCoinVFX({ entities }: { entities: Entity[] }) {
 
         // 4. 呼吸缩放效果：使用不同的频率
         const pulse = Math.sin(time * 0.3) * 0.05 + 1.0;
-        instance.scale.set(pulse, pulse, pulse);
+        
+        // 5. 优雅吸收：离玩家越近，缩得越小
+        let absorbScale = 1.0;
+        if (entity.projectile?.targetId) {
+          const target = entityMap.get(entity.projectile.targetId);
+          if (target) {
+            const dx = target.position.x - entity.position.x;
+            const dy = (target.position.y + 0.5) - entity.position.y;
+            const dz = target.position.z - entity.position.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            absorbScale = Math.min(1.0, dist / 3.0); // 3米内开始线性缩小，增强视觉反馈
+          }
+        }
+        
+        instance.scale.set(pulse * absorbScale, pulse * absorbScale, pulse * absorbScale);
 
-        // 5. 颜色处理 (寿命衰减)
+        // 6. 颜色处理 (寿命衰减)
         const life = entity.projectile?.lifeTime || 1.0;
         const opacity = Math.min(1.0, life * 2.0);
         _color.set("#ffd700").multiplyScalar(opacity);

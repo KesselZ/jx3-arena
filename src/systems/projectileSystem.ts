@@ -41,9 +41,14 @@ export function projectileSystem(dt: number) {
         const distSq = dx * dx + dz * dz;
         if (distSq < 4 * 4) { // 4米范围内开始吸附
           p.targetId = player.id;
-          p.speed = 12; // 吸附时加速
+          p.speed = 5; // 优雅起步：初始速度设低一点
         }
       }
+    }
+
+    // 0.1 金币吸附加速度逻辑
+    if (entity.money && p.targetId) {
+      p.speed += dt * 40; // 极速爆发：每秒增加 40m/s 的速度
     }
 
     // 1. 生命周期管理
@@ -59,8 +64,8 @@ export function projectileSystem(dt: number) {
     if (p.targetId && (p.trackingCooldown === undefined || p.trackingCooldown <= 0)) {
       const target = entityMap.get(p.targetId)
       if (target && !target.dead) {
-        // 简单的转向逻辑：向目标位置插值
-        _v1.set(target.position.x, target.position.y + 1, target.position.z)
+        // 简单的转向逻辑：向目标位置插值 (吸向身体中心 y+0.5)
+        _v1.set(target.position.x, target.position.y + 0.5, target.position.z)
         _v2.set(entity.position.x, entity.position.y, entity.position.z)
         const distToTarget = _v1.distanceTo(_v2)
         const dirToTarget = _v1.sub(_v2).normalize()
@@ -125,8 +130,13 @@ export function projectileSystem(dt: number) {
       for (let j = 0; j < nearby.length; j++) {
         const target = nearby[j]
         
-        if (target.id === p.ownerId || p.hitEntities.has(target.id)) continue
+        if (target.id === p.ownerId) continue
         if (target.dead || !target.health) continue
+
+        // --- 核心优化：基于时间的重复命中检测 ---
+        const lastHitTime = p.hitEntities.get(target.id) || 0;
+        const currentTime = performance.now() / 1000;
+        if (currentTime - lastHitTime < p.hitInterval) continue;
 
         const isTargetFriendly = target.type === 'player' || target.type === 'ally'
         if (isOwnerFriendly === isTargetFriendly) continue 
@@ -138,7 +148,7 @@ export function projectileSystem(dt: number) {
           applyProjectileHit(entity, target)
           
           p.pierce--
-          p.hitEntities.add(target.id)
+          p.hitEntities.set(target.id, currentTime); // 记录命中时间戳
           
           // 命中后进入短暂的追踪冷却，防止原地抽搐
           p.trackingCooldown = 0.5; 

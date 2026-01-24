@@ -117,6 +117,10 @@ function handleRangedAttack(attacker: Entity, target: Entity, style: CombatStyle
   if (!unitDef?.combat?.projectile) return;
 
   const pConfig = unitDef.combat.projectile;
+  const baseInterval = style.hitInterval || 0.5;
+  // 预留秘籍加成接口: const bonus = useGameStore.getState().getBonus('hit_freq') || 0;
+  const finalInterval = baseInterval; 
+
   const projectileEntity: Entity = {
     id: `projectile-${attacker.id}-${performance.now()}`,
     type: 'bullet',
@@ -131,7 +135,8 @@ function handleRangedAttack(attacker: Entity, target: Entity, style: CombatStyle
       maxPierce: pConfig.pierce,
       ownerId: attacker.id,
       targetId: pConfig.logic === 'tracking' ? target.id : undefined,
-      hitEntities: new Set(),
+      hitEntities: new Map(), // 改为 Map
+      hitInterval: finalInterval, 
       lifeTime: pConfig.lifeTime,
       styleId: style.id, // 核心：将战斗风格 ID 传递给弹道实体
     },

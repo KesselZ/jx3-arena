@@ -53,9 +53,26 @@ export const CHARACTER_UI_INFOS: Record<string, CharacterUIInfo> = {
       { label: '外功防御', value: '+25%', isPositive: true },
       { label: '攻击间隔', value: '+10%', isPositive: false },
     ],
-    displayStats: {
-      health: '1500',
-      speed: '极快'
+      displayStats: {
+        health: '1500',
+        speed: '极快'
+      }
+    },
+    'player_chunyang_senior': {
+      id: 'player_chunyang_senior',
+      name: '纯阳师兄',
+      sect: '纯阳宫',
+      title: '剑气纵横',
+      description: '昆仑玄境山外山，乾坤阴阳有洞天。纯阳师兄精通御剑之术，以气御剑，杀敌于百步之外。',
+      difficulty: 4,
+      traits: [
+        { label: '御剑伤害', value: '+45%', isPositive: true },
+        { label: '攻击频率', value: '极高', isPositive: true },
+        { label: '基础生命', value: '-10%', isPositive: false },
+      ],
+      displayStats: {
+        health: '1100',
+        speed: '灵动'
+      }
     }
-  }
-};
+  };

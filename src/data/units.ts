@@ -6,6 +6,7 @@ export const SPRITE_SHEETS = {
   'wanhua': { path: '/assets/characters/wanhua.png', rows: 4, cols: 4 },
   'tiance4': { path: '/assets/characters/tiance4.png', rows: 4, cols: 4 },
   'chunyang': { path: '/assets/characters/chunyang.png', rows: 4, cols: 4 },
+  'chunyang3': { path: '/assets/characters/chunyang3.png', rows: 4, cols: 4 },
 };
 
 export interface UnitConfig {
@@ -78,6 +79,30 @@ export const UNITS: Record<string, UnitConfig> = {
     },
     movement: {
       speed: 30.0
+    }
+  },
+  'player_chunyang_senior': { 
+    sheet: 'chunyang3', row: 2, col: 0, name: '纯阳师兄', 
+    anchor: 'bottom',
+    isPlayable: true,
+    scale: 1.5,
+    combat: {
+      styleId: 'air_sword',
+      range: 12.0,
+      speed: 1.6,
+      power: 22,
+      knockback: 110,
+      burst: 4,
+      burstInterval: 0.08,
+      projectile: {
+        speed: 28,
+        pierce: 999,
+        logic: 'tracking',
+        lifeTime: 2.0
+      }
+    },
+    movement: {
+      speed: 32.0
     }
   },
   

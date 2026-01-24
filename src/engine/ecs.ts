@@ -1,5 +1,6 @@
 import { World } from 'miniplex'
 import { UNITS } from '../data/units'
+import { COMBAT_STYLES } from '../data/combatConfig'
 
 // --- 组件定义 (拆装式属性) ---
 
@@ -57,7 +58,8 @@ export type Entity = {
       maxPierce: number;
       ownerId: string;
       targetId?: string; 
-      hitEntities: Set<string>; 
+      hitEntities: Map<string, number>; // 修改：从 Set 改为 Map<targetId, lastHitTime>
+      hitInterval: number; // 新增：对同一个目标再次造成伤害的间隔 (秒)
       lifeTime: number; 
       styleId: string; // 新增：记录战斗风格 ID
       trackingCooldown?: number; // 新增：命中后的追踪冷却时间 (秒)
@@ -105,6 +107,8 @@ export type Entity = {
   visualFlip?: number;  // 新增：平滑渲染使用的翻转比例 (-1 到 1)
   lastMoveX?: number;   // 新增：记录最后一次移动的世界坐标 X
   lastMoveZ?: number;   // 新增：记录最后一次移动的世界坐标 Z
+  
+  animOffset?: number;  // 新增：随机动画相位偏移
   
   spawnTimer?: number;  // 新增：出生预警倒计时 (秒)
   
@@ -193,6 +197,7 @@ export function spawnGold(position: Position, amount: number = 1) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const force = 1.5 + Math.random() * 2;
+    const style = COMBAT_STYLES['gold_coin'];
     
     world.add({
       id: `gold-${now}-${Math.random()}`,
@@ -217,7 +222,8 @@ export function spawnGold(position: Position, amount: number = 1) {
         pierce: 99,
         maxPierce: 99,
         ownerId: 'world',
-        hitEntities: new Set(),
+        hitEntities: new Map(),
+        hitInterval: style?.hitInterval || 0.1,
         lifeTime: 15.0, // 15秒后消失
         styleId: 'gold_coin',
       },

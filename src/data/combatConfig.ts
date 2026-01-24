@@ -7,6 +7,7 @@ import { SoundID } from '../assets/audioAssets';
 export interface CombatStyle {
   id: string;
   logic: 'melee' | 'ranged';
+  hitInterval?: number; // 新增：该风格弹道的默认命中间隔 (秒)
   sfx: {
     fire: SoundID;    // 发起动作时的音效
     hit: SoundID;     // 命中时的音效
@@ -33,18 +34,21 @@ export const COMBAT_STYLES: Record<string, CombatStyle> = {
   'arrow': {
     id: 'arrow',
     logic: 'ranged',
+    hitInterval: 999, // 箭矢通常只命中一次
     sfx: { fire: 'ARROW', hit: 'HIT_BODY' },
     vfx: { type: 'arrow', duration: 2.0 } // 弹道寿命
   },
   'air_sword': {
     id: 'air_sword',
     logic: 'ranged',
+    hitInterval: 0.5, // 飞剑默认 0.5s 攻击一次相同目标
     sfx: { fire: 'AIR_SWORD', hit: 'HIT_BODY' },
     vfx: { type: 'air_sword', duration: 2.0 }
   },
   'gold_coin': {
     id: 'gold_coin',
     logic: 'ranged',
+    hitInterval: 0.1, // 金币拾取间隔极短
     sfx: { fire: 'CLICK_CLEAN', hit: 'CLICK_CLEAN' },
     vfx: { type: 'gold_coin' as any, duration: 10.0 }
   }
