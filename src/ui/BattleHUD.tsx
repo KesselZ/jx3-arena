@@ -169,6 +169,8 @@ export function HealthSync({ player, barRef, textRef }: { player: any, barRef: R
 export function BattleHUD({ barRef, textRef }: { barRef: React.RefObject<HTMLDivElement>, textRef: React.RefObject<HTMLSpanElement> }) {
   const setPhase = useGameStore((state) => state.setPhase)
   const wave = useGameStore((state) => state.wave)
+  const waveTimer = useGameStore((state) => state.waveTimer)
+  const gold = useGameStore((state) => state.gold)
   
   // 1. 初始获取玩家实体
   const { entities } = useEntities(queries.players)
@@ -178,22 +180,39 @@ export function BattleHUD({ barRef, textRef }: { barRef: React.RefObject<HTMLDiv
     <div className="absolute inset-0 z-10 pointer-events-none p-8 flex flex-col justify-between text-jx3-gold">
       {/* 顶部：波次与回营 */}
       <div className="flex justify-between items-start pointer-events-auto">
-        <div className="pixel-panel border-jx3-gold !bg-jx3-ink !text-jx3-gold">
-          <h2 className="font-bold tracking-tighter">
-            {player?.unitId ? `侠士: ${player.unitId}` : '准备战斗'}
-          </h2>
-          <div className="w-48 h-4 bg-jx3-wood border-2 border-jx3-ink mt-2 relative overflow-hidden">
-            <div 
-              ref={barRef}
-              className="h-full bg-jx3-vermilion transition-all duration-100 ease-out" 
-              style={{ width: '0%' }} 
-            ></div>
+        <div className="flex gap-4">
+          <div className="pixel-panel border-jx3-gold !bg-jx3-ink !text-jx3-gold">
+            <h2 className="font-bold tracking-tighter">
+              {player?.unitId ? `侠士: ${player.unitId}` : '准备战斗'}
+            </h2>
+            <div className="w-48 h-4 bg-jx3-wood border-2 border-jx3-ink mt-2 relative overflow-hidden">
+              <div 
+                ref={barRef}
+                className="h-full bg-jx3-vermilion transition-all duration-100 ease-out" 
+                style={{ width: '0%' }} 
+              ></div>
+            </div>
+            <div className="text-[10px] mt-1 opacity-70 flex justify-between">
+              <span>气血值</span>
+              <span ref={textRef}>0 / 0</span>
+            </div>
           </div>
-          <div className="text-[10px] mt-1 opacity-70 flex justify-between">
-            <span>气血值</span>
-            <span ref={textRef}>0 / 0</span>
+
+          <div className="pixel-panel border-jx3-gold !bg-jx3-ink !text-jx3-gold flex flex-col justify-center items-center min-w-[100px]">
+            <div className="text-[10px] opacity-70 uppercase tracking-wider">第 {wave} 波</div>
+            <div className="text-2xl font-bold font-mono">
+              {Math.ceil(waveTimer)}s
+            </div>
+          </div>
+
+          <div className="pixel-panel border-jx3-gold !bg-jx3-ink !text-jx3-gold flex flex-col justify-center items-center min-w-[80px]">
+            <div className="text-[10px] opacity-70 uppercase tracking-wider">金钱</div>
+            <div className="text-xl font-bold text-yellow-400">
+              {gold}
+            </div>
           </div>
         </div>
+
         <button 
           onClick={() => setPhase('LOBBY')}
           className="px-4 py-2 bg-jx3-paper text-jx3-ink font-bold border-b-4 border-r-4 border-jx3-ink hover:bg-white active:translate-x-[2px] active:translate-y-[2px] active:border-b-0 active:border-r-0 transition-all"

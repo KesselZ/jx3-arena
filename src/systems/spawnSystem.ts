@@ -21,10 +21,10 @@ const performInitialSpawn = (currentWave: number) => {
   }
 
   // 2. 补发初始敌人
-  const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
+  const pool = GAME_CONFIG.WAVES.DEFAULT_POOL
   for(let i=0; i<GAME_CONFIG.BATTLE.INITIAL_ENEMIES; i++) {
     const spawnPos = { x: (Math.random() - 0.5) * 30, z: (Math.random() - 0.5) * 20 }
-    createNPC(waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)], 'enemy', spawnPos.x, spawnPos.z)
+    createNPC(pool[Math.floor(Math.random() * pool.length)], 'enemy', spawnPos.x, spawnPos.z)
   }
 }
 
@@ -38,7 +38,7 @@ export const spawnSystem = (
 ) => {
   // 剧情模式下不刷怪
   const { phase } = useGameStore.getState();
-  if (phase === 'CUTSCENE') return;
+  if (phase === 'CUTSCENE' || phase === 'SHOP') return;
 
   // 如果还没进行初始生成，先执行初始生成
   if (!initialSpawnDone) {
@@ -48,17 +48,14 @@ export const spawnSystem = (
   }
 
   // 获取当前波次配置
-  const waveConfig = GAME_CONFIG.WAVES[currentWave as keyof typeof GAME_CONFIG.WAVES] || GAME_CONFIG.WAVES[1]
+  const pool = GAME_CONFIG.WAVES.DEFAULT_POOL
   
-  // 检查是否达到该波次最大刷怪上限
-  if (totalSpawnedInWave >= waveConfig.count) return
-
   // 计时器逻辑
   if (elapsedTime - lastSpawnTime > GAME_CONFIG.BATTLE.SPAWN_INTERVAL) {
     lastSpawnTime = elapsedTime
     
     // 从池子中随机选一个敌人
-    const randomUnitId = waveConfig.pool[Math.floor(Math.random() * waveConfig.pool.length)]
+    const randomUnitId = pool[Math.floor(Math.random() * pool.length)]
     
     // 计算刷怪位置：屏幕边缘
     const spawnPos = getRandomEdgePosition()

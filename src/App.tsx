@@ -9,7 +9,8 @@ import * as THREE from 'three'
 
 function App() {
   const phase = useGameStore((state) => state.phase)
-  const togglePause = useGameStore((state) => state.togglePause)
+  const setPaused = useGameStore((state) => state.setPaused)
+  const setShowPauseMenu = useGameStore((state) => state.setShowPauseMenu)
 
   // 全局初始化 AudioListener
   useEffect(() => {
@@ -23,16 +24,19 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // 只有在战斗或剧情模式下才允许暂停
-        const currentPhase = useGameStore.getState().phase;
+        const state = useGameStore.getState();
+        const currentPhase = state.phase;
         if (currentPhase === 'BATTLE' || currentPhase === 'CUTSCENE') {
-          togglePause();
+          const newPaused = !state.isPaused;
+          setPaused(newPaused);
+          setShowPauseMenu(newPaused);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePause]);
+  }, [setPaused, setShowPauseMenu]);
 
   return (
     <div className="w-full h-full bg-black">

@@ -372,6 +372,9 @@ export function BattleWorld() {
   useEffect(() => {
     if (!selectedCharacter) return
     const initGame = async () => {
+      // 如果已经在战斗中（比如从商店返回），不要重新初始化世界
+      if (world.entities.length > 0) return
+
       await Promise.all([
         Assets.preloadAll(),
         AudioAssets.preload(['CLICK_CLEAN', 'SLASH', 'IMPACT', 'HIT_BODY'])
@@ -416,7 +419,8 @@ export function BattleWorld() {
       }
     };
     initGame();
-    return () => world.clear()
+    // 只有在真正销毁 BattleWorld 时才清空世界
+    // return () => world.clear()
   }, [selectedCharacter, scene])
 
   return (

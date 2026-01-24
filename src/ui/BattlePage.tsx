@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { BattleWorld } from '../scenes/BattleWorld'
 import { BattleHUD, PerformanceMonitor, HealthSync } from './BattleHUD'
 import { DialogueView } from './DialogueView'
+import { ShopView } from './ShopView'
 import { useEntities } from 'miniplex-react'
 import { queries } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
@@ -34,10 +35,10 @@ export const BattlePage = () => {
         </Canvas>
       </div>
 
-      {/* 2. 2D 交互层 (HUD / Dialogue) */}
-      {phase === 'CUTSCENE' ? (
-        <DialogueView />
-      ) : (
+      {/* 2. 2D 交互层 (HUD / Dialogue / Shop) */}
+      {phase === 'CUTSCENE' && <DialogueView />}
+      <ShopView />
+      {phase !== 'CUTSCENE' && (
         <BattleHUD barRef={barRef} textRef={textRef} />
       )}
     </div>

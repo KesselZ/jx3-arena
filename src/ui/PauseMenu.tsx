@@ -2,11 +2,17 @@ import React from 'react'
 import { useGameStore } from '../store/useGameStore'
 
 export const PauseMenu: React.FC = () => {
-  const isPaused = useGameStore((state) => state.isPaused)
-  const togglePause = useGameStore((state) => state.togglePause)
+  const showPauseMenu = useGameStore((state) => state.showPauseMenu)
+  const setPaused = useGameStore((state) => state.setPaused)
+  const setShowPauseMenu = useGameStore((state) => state.setShowPauseMenu)
   const setPhase = useGameStore((state) => state.setPhase)
 
-  if (!isPaused) return null
+  if (!showPauseMenu) return null
+
+  const handleResume = () => {
+    setPaused(false);
+    setShowPauseMenu(false);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -14,7 +20,7 @@ export const PauseMenu: React.FC = () => {
         <h2 className="text-3xl font-bold text-jx3-gold text-center mb-4 tracking-widest">游戏暂停</h2>
         
         <button 
-          onClick={togglePause}
+          onClick={handleResume}
           className="w-full py-3 bg-jx3-gold hover:bg-yellow-500 text-black font-bold rounded transition-colors text-xl"
         >
           继续游戏
@@ -22,7 +28,7 @@ export const PauseMenu: React.FC = () => {
 
         <button 
           onClick={() => {
-            togglePause();
+            handleResume();
             // 这里可以添加设置界面的逻辑
           }}
           className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded transition-colors text-xl border border-slate-500"
@@ -33,7 +39,7 @@ export const PauseMenu: React.FC = () => {
         <button 
           onClick={() => {
             if (confirm('确定要退出当前战斗返回主菜单吗？')) {
-              togglePause();
+              handleResume();
               setPhase('LOBBY');
             }
           }}

@@ -14,8 +14,8 @@ export const GAME_CONFIG = {
       x: 35,
       z: 35
     },
-    SPAWN_INTERVAL: 0.025,      // 刷怪速度加快100倍 (原2.5秒)
-    INITIAL_ENEMIES: 3,        // 开局立即生成的怪物数量
+    SPAWN_INTERVAL: 0.5,      // 刷怪速度，调整为更合理的 0.5 秒一个
+    INITIAL_ENEMIES: 10,        // 开局立即生成的怪物数量
     TARGET_STICKY_MULT: 1.5,   // 索敌粘性倍率 (射程的倍数)
     DEATH_DURATION: 0.6,       // 死亡动画总长
     DEATH_JUMP_HEIGHT: 1.5,    // 死亡弹跳高度
@@ -58,16 +58,7 @@ export const GAME_CONFIG = {
   
   // 关卡/波次配置
   WAVES: {
-    1: { 
-      pool: ['bandit', 'archer'] as const, 
-      count: 5000, // 大幅提升上限，用于压力测试
-      theme: 'grassland' as const 
-    },
-    2: { 
-      pool: ['bandit', 'archer'] as const, 
-      count: 5000, 
-      theme: 'desert' as const 
-    }
+    DEFAULT_POOL: ['bandit', 'archer'] as const,
   },
   
   // 视觉/渲染相关
@@ -120,5 +111,7 @@ export const GAME_CONFIG = {
     GOLD: '#d4af37',
     INK: '#1a1a1a',
     VERMILION: '#e34234',
+    WOOD: '#3d2b1f',
+    PAPER: '#f5efe6',
   }
 }

@@ -15,6 +15,7 @@
     "@react-three/fiber": "^9.0.0",
     "@react-three/postprocessing": "^3.0.4",
     "@react-three/rapier": "^2.2.0",
+    "framer-motion": "^12.29.0",
     "lucide-react": "^0.562.0",
     "miniplex": "^2.0.0",
     "miniplex-react": "^2.0.1",

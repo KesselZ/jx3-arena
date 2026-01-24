@@ -19,12 +19,18 @@ interface GameState {
   gold: number
   selectedCharacter: string | null
   
+  // 计时器状态
+  waveTimer: number
+  maxWaveTimer: number
+
   // 对话系统状态
   dialogueLines: DialogueLine[]
   currentDialogueIndex: number
 
   // 暂停状态
   isPaused: boolean
+  showPauseMenu: boolean
+  showShop: boolean
   
   // 动作
   setPhase: (phase: GamePhase) => void
@@ -32,6 +38,10 @@ interface GameState {
   setSelectedCharacter: (unitId: string) => void
   nextWave: () => void
   addGold: (amount: number) => void
+  updateWaveTimer: (delta: number) => void
+  resetWaveTimer: () => void
+  openShop: () => void
+  closeShop: () => void
 
   // 对话动作
   startDialogue: (lines: DialogueLine[]) => void
@@ -42,6 +52,7 @@ interface GameState {
   triggerDialogue: (triggerId: string) => void
   togglePause: () => void
   setPaused: (paused: boolean) => void
+  setShowPauseMenu: (show: boolean) => void
 
   // 性能监测数据
   fps: number
@@ -88,9 +99,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   gold: 0,
   selectedCharacter: null,
   
+  waveTimer: 5, // 改为 5 秒
+  maxWaveTimer: 5,
+  
   dialogueLines: [],
   currentDialogueIndex: 0,
   isPaused: false,
+  showPauseMenu: false,
+  showShop: false,
   
   fps: 0,
   frameTime: 0,
@@ -103,8 +119,36 @@ export const useGameStore = create<GameState>((set, get) => ({
   setPhase: (phase) => set({ phase }),
   setTheme: (theme) => set({ theme }),
   setSelectedCharacter: (unitId) => set({ selectedCharacter: unitId }),
-  nextWave: () => set((state) => ({ wave: state.wave + 1 })),
+  nextWave: () => set((state) => ({ 
+    wave: state.wave + 1, 
+    waveTimer: state.maxWaveTimer, 
+    phase: 'BATTLE', 
+    isPaused: false, 
+    showPauseMenu: false,
+    showShop: false
+  })),
   addGold: (amount) => set((state) => ({ gold: state.gold + amount })),
+  updateWaveTimer: (delta) => set((state) => {
+    const newTimer = Math.max(0, state.waveTimer - delta);
+    // 只有在 BATTLE 阶段且未暂停（包括对话、商店、暂停菜单）时才更新计时器
+    if (state.phase !== 'BATTLE' || state.isPaused) {
+      return state;
+    }
+    
+    if (newTimer <= 0) {
+      // 5秒时间到，调用 openShop (冻结世界并显示商店)
+      return { 
+        waveTimer: state.maxWaveTimer,
+        wave: state.wave + 1,
+        isPaused: true, 
+        showShop: true 
+      };
+    }
+    return { waveTimer: newTimer };
+  }),
+  resetWaveTimer: () => set((state) => ({ waveTimer: state.maxWaveTimer })),
+  openShop: () => set({ isPaused: true, showShop: true }),
+  closeShop: () => set({ isPaused: false, showShop: false }),
   setArenaSeats: (seats) => set({ arenaSeats: seats }),
 
   startDialogue: (lines) => set({ 
@@ -135,6 +179,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
   setPaused: (paused) => set({ isPaused: paused }),
-
+  setShowPauseMenu: (show) => set({ showPauseMenu: show }),
   updateStats: (stats) => set((state) => ({ ...state, ...stats })),
 }))

@@ -17,6 +17,7 @@ import { spatialHash } from '../engine/spatialHash'
  */
 export function useBattleSystems(keys: any, currentWave: number) {
   const elapsedTime = useRef(0)
+  const updateWaveTimer = useGameStore(state => state.updateWaveTimer)
   
   // 性能分析数据
   const perfMetrics = useRef<Record<string, number>>({
@@ -41,6 +42,9 @@ export function useBattleSystems(keys: any, currentWave: number) {
     
     // 更新全局流逝时间
     elapsedTime.current += delta
+    
+    // 更新波次计时器
+    updateWaveTimer(delta)
     
     // 1. Input System
     t = performance.now()
