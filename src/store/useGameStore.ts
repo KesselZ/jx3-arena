@@ -9,6 +9,7 @@ export interface DialogueLine {
   speaker: string;
   content: string;
   avatar?: string;
+  speakerPic?: string; // 新增：对话时显示的立绘图片
 }
 
 interface GameState {

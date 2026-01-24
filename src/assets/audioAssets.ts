@@ -37,6 +37,7 @@ export const SOUND_ASSETS = {
   CLICK_SELECT: { path: '/audio/click/卡牌声音.mp3', is3D: false, volume: 0.5 },
   CLICK_HOVER: { path: '/audio/click/轻微click声.mp3', is3D: false, volume: 0.3 },
   CLICK_CONFIRM: { path: '/audio/click/出现建筑选择.mp3', is3D: false, volume: 0.7 },
+  TYPEWRITER: { path: '/audio/sources/文字气泡.mp3', is3D: false, volume: 0.4 },
   SUCCESS: { path: '/audio/click/胜利音效.mp3', is3D: false, volume: 0.7 },
   FAIL: { path: '/audio/click/战斗失败音效.mp3', is3D: false, volume: 0.7 },
   

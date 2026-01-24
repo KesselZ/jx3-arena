@@ -3,9 +3,21 @@ import { DialogueLine } from '../store/useGameStore';
 export const DIALOGUES: Record<string, DialogueLine[]> = {
   // 初始进入竞技场的通用对话
   ARENA_START: [
-    { speaker: '神秘人', content: '欢迎来到大唐竞技场。这里只有强者才能生存。' },
-    { speaker: '系统提示', content: '击败源源不断的敌人，积累金钱并提升你的实力。' },
-    { speaker: '神秘人', content: '准备好了吗？战斗即将开始！' }
+    { 
+      speaker: '谷之岚', 
+      content: '你好，我是{谷之岚|text-jx3-gold}。欢迎来到{大唐竞技场|text-jx3-gold}！这里不仅是武艺的较量，更是意志的磨砺。',
+      speakerPic: '/assets/holder.png'
+    },
+    { 
+      speaker: '谷之岚', 
+      content: '在这片土地上，你需要通过{击败敌人|text-red-400}来获取{金钱|text-yellow-400}，并在战斗间隙提升自己的实力。',
+      speakerPic: '/assets/holder.png'
+    },
+    { 
+      speaker: '谷之岚', 
+      content: '准备好了吗？让我们开启这段{强者之路|text-jx3-gold}吧！',
+      speakerPic: '/assets/holder.png'
+    }
   ],
   
   // 角色专属开场白 (key 为角色 ID)
