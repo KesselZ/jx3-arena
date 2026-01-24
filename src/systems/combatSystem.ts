@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { world, Entity, spawnDamageText } from '../engine/ecs';
+import { world, Entity, spawnDamageText, spawnGold } from '../engine/ecs';
 import { findNearestHostile, findHero } from '../engine/targeting';
 import { UNITS } from '../data/units';
 import { AudioAssets, SoundPriority } from '../assets/audioAssets';
@@ -181,6 +181,12 @@ function handleMeleeAttack(attacker: Entity, target: Entity, style: CombatStyle,
       target.dead = true;
       target.deathTime = time;
       target.deathDir = { x: nx, y: 0, z: nz };
+      
+      // 敌人死亡掉落金币
+      if (target.type === 'enemy') {
+        spawnGold(target.position, 10); // 暂定掉落 10 金币
+      }
+
       delete target.ai;
       delete target.attack;
       delete target.input;

@@ -1,8 +1,10 @@
 import * as THREE from 'three'
-import { world, queries, Entity, entityMap, spawnDamageText } from '../engine/ecs'
+import { world, queries, Entity, entityMap, spawnDamageText, spawnGold } from '../engine/ecs'
 import { spatialHash } from '../engine/spatialHash'
 import { GAME_CONFIG } from '../data/config'
 import { AudioAssets, SoundPriority } from '../assets/audioAssets'
+import { useGameStore } from '../store/useGameStore'
+import { Physics } from '../engine/physics'
 
 import { COMBAT_STYLES } from '../data/combatConfig'
 
@@ -25,6 +27,20 @@ export function projectileSystem(dt: number) {
     const entity = projectiles[i]
     const p = entity.projectile!
 
+    // 0. 金币自动吸附逻辑 (高级算法：距离平方判定)
+    if (entity.money && !p.targetId) {
+      const player = queries.players.entities[0];
+      if (player) {
+        const dx = player.position.x - entity.position.x;
+        const dz = player.position.z - entity.position.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < 4 * 4) { // 4米范围内开始吸附
+          p.targetId = player.id;
+          p.speed = 12; // 吸附时加速
+        }
+      }
+    }
+
     // 1. 生命周期管理
     p.lifeTime -= dt
     if (p.lifeTime <= 0) {
@@ -41,11 +57,15 @@ export function projectileSystem(dt: number) {
         // 简单的转向逻辑：向目标位置插值
         _v1.set(target.position.x, target.position.y + 1, target.position.z)
         _v2.set(entity.position.x, entity.position.y, entity.position.z)
+        const distToTarget = _v1.distanceTo(_v2)
         const dirToTarget = _v1.sub(_v2).normalize()
         
         // 将当前速度向目标方向偏移 (追踪力度)
         const currentDir = _v2.set(entity.velocity.x, entity.velocity.y, entity.velocity.z).normalize()
-        currentDir.lerp(dirToTarget, 0.1) // 0.1 是追踪灵敏度
+        
+        // 高级算法：距离越近，追踪越死 (防止金币在玩家身边绕圈)
+        const lerpFactor = distToTarget < 2 ? 0.3 : 0.1
+        currentDir.lerp(dirToTarget, lerpFactor) 
         
         entity.velocity.x = currentDir.x * p.speed
         entity.velocity.y = currentDir.y * p.speed
@@ -54,9 +74,22 @@ export function projectileSystem(dt: number) {
     }
 
     // 3. 更新物理位移
-    entity.position.x += entity.velocity.x * dt
-    entity.position.y += entity.velocity.y * dt
-    entity.position.z += entity.velocity.z * dt
+    if (entity.physics) {
+      // 如果有物理组件，应用重力和阻尼 (用于金币掉落效果)
+      Physics.applyDamping(entity.velocity, entity.physics.damping, dt);
+      entity.physics.isGrounded = Physics.applyGravity(entity.position, entity.velocity, GAME_CONFIG.PHYSICS.GRAVITY, dt);
+      
+      // 只有在空中的时候才根据速度更新 x/z 位移
+      if (!entity.physics.isGrounded) {
+        entity.position.x += entity.velocity.x * dt;
+        entity.position.z += entity.velocity.z * dt;
+      }
+    } else {
+      // 普通弹道逻辑
+      entity.position.x += entity.velocity.x * dt
+      entity.position.y += entity.velocity.y * dt
+      entity.position.z += entity.velocity.z * dt
+    }
 
     // 4. 更新逻辑朝向
     _v1.set(entity.velocity.x, entity.velocity.y, entity.velocity.z).normalize()
@@ -120,6 +153,24 @@ export function projectileSystem(dt: number) {
  */
 function applyProjectileHit(projectile: Entity, target: Entity) {
   const p = projectile.projectile!
+  
+  // --- 金币收集逻辑 ---
+  if (projectile.money && target.type === 'player') {
+    if (!projectile.money.collected) {
+      projectile.money.collected = true;
+      useGameStore.getState().addGold(projectile.money.amount);
+      
+      // 播放清脆的金币音效
+      AudioAssets.play('CLICK_CLEAN', { 
+        position: target.position, 
+        priority: SoundPriority.NORMAL 
+      });
+      
+      world.remove(projectile);
+    }
+    return;
+  }
+
   const style = COMBAT_STYLES[p.styleId]; // 核心：读取声明式的风格配置
   
   // 1. 扣血
@@ -150,6 +201,11 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
         x: projectile.velocity.x * 0.2, 
         y: 0.5, 
         z: projectile.velocity.z * 0.2 
+      }
+
+      // 敌人死亡掉落金币
+      if (target.type === 'enemy') {
+        spawnGold(target.position, 10);
       }
     }
   }

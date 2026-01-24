@@ -160,6 +160,56 @@ export function AirSwordVFX({ entities }: { entities: Entity[] }) {
 }
 
 /**
+ * 金币特效 (GoldCoinVFX)
+ * 职责：渲染旋转的金币，支持物理坐标同步
+ */
+export function GoldCoinVFX({ entities }: { entities: Entity[] }) {
+  // 1. 架构优化：预先平移几何体锚点，使 y=0 成为金币底部而非中心
+  const goldGeometry = useMemo(() => {
+    const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.05, 12);
+    geo.rotateX(Math.PI / 2); // 让硬币立起来
+    geo.translate(0, 0.1, 0); // 向上平移，确保底部在 y=0 上方，并留出一点悬浮空间
+    return geo;
+  }, []);
+
+  return (
+    <VFXGroup
+      entities={entities}
+      limit={500}
+      geometry={<primitive object={goldGeometry} attach="geometry" />}
+      material={<meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} emissive="#aa8800" emissiveIntensity={0.5} />}
+      onUpdate={(instance, progress, entity) => {
+        // 2. 悬浮感：引入随机相位偏移 (entity.animOffset)，让不同金币节奏不同
+        const phase = (entity.animOffset || 0) * 100;
+        const time = performance.now() * 0.005 + phase;
+        
+        const hover = Math.sin(time * 0.5) * 0.1 + 0.15; // 基础悬浮高度 0.15
+        
+        instance.position.set(
+          entity.position.x, 
+          entity.position.y + hover, 
+          entity.position.z
+        );
+        
+        // 3. 旋转动画：加上相位，防止全场同步
+        _euler.set(0, time * 1.5, 0); 
+        instance.quaternion.setFromEuler(_euler);
+
+        // 4. 呼吸缩放效果：使用不同的频率
+        const pulse = Math.sin(time * 0.3) * 0.05 + 1.0;
+        instance.scale.set(pulse, pulse, pulse);
+
+        // 5. 颜色处理 (寿命衰减)
+        const life = entity.projectile?.lifeTime || 1.0;
+        const opacity = Math.min(1.0, life * 2.0);
+        _color.set("#ffd700").multiplyScalar(opacity);
+        ;(instance as any)._color = _color;
+      }}
+    />
+  );
+}
+
+/**
  * 出生预警特效 (SpawnWarningVFX)
  * 职责：在地面显示一个闪烁的叉叉，指示即将生成的单位
  */

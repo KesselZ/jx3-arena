@@ -12,7 +12,7 @@ export interface CombatStyle {
     hit: SoundID;     // 命中时的音效
   };
   vfx: {
-    type: 'slash' | 'arrow' | 'burst' | 'air_sword';
+    type: 'slash' | 'arrow' | 'burst' | 'air_sword' | 'gold_coin';
     duration: number;
   };
 }
@@ -41,5 +41,11 @@ export const COMBAT_STYLES: Record<string, CombatStyle> = {
     logic: 'ranged',
     sfx: { fire: 'AIR_SWORD', hit: 'HIT_BODY' },
     vfx: { type: 'air_sword', duration: 2.0 }
+  },
+  'gold_coin': {
+    id: 'gold_coin',
+    logic: 'ranged',
+    sfx: { fire: 'CLICK_CLEAN', hit: 'CLICK_CLEAN' },
+    vfx: { type: 'gold_coin' as any, duration: 10.0 }
   }
 };

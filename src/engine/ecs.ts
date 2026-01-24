@@ -107,6 +107,11 @@ export type Entity = {
   
   spawnTimer?: number;  // 新增：出生预警倒计时 (秒)
   
+  money?: {
+    amount: number;
+    collected?: boolean;
+  };
+  
   // 伤害飘字组件
   damageDigit?: {
     value: number;      // 0-9 的单个数字
@@ -170,5 +175,61 @@ export function spawnDamageText(value: number, position: Position) {
         startTime: now
       }
     })
+  }
+}
+
+/**
+ * 辅助函数：生成金币
+ * 职责：在指定位置生成可吸附的金币实体
+ */
+export function spawnGold(position: Position, amount: number = 1) {
+  const now = performance.now() / 1000;
+  
+  // 每次掉落 1-3 枚金币，视觉效果更好
+  const count = Math.min(3, amount);
+  const valuePerCoin = Math.ceil(amount / count);
+
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const force = 1.5 + Math.random() * 2;
+    
+    world.add({
+      id: `gold-${now}-${Math.random()}`,
+      type: 'bullet', // 借用弹道类型以复用 ProjectileSystem
+      animOffset: Math.random() * 10, // 新增：随机动画相位偏移
+      position: { 
+        x: position.x, 
+        y: position.y + 0.5, 
+        z: position.z 
+      },
+      velocity: { 
+        x: Math.cos(angle) * force, 
+        y: 5 + Math.random() * 3, // 向上喷射
+        z: Math.sin(angle) * force 
+      },
+      moveIntent: { x: 0, y: 0, z: 0 },
+      health: { current: 1, max: 1 },
+      money: { amount: valuePerCoin },
+      projectile: {
+        damage: 0,
+        speed: 0, // 初始静止（由 velocity 控制喷射）
+        pierce: 99,
+        maxPierce: 99,
+        ownerId: 'world',
+        hitEntities: new Set(),
+        lifeTime: 15.0, // 15秒后消失
+        styleId: 'gold_coin',
+      },
+      effect: {
+        type: 'gold_coin' as any,
+        startTime: now,
+        duration: 15.0,
+      },
+      physics: {
+        damping: 0.95,
+        isGrounded: false,
+        mass: 1
+      }
+    });
   }
 }

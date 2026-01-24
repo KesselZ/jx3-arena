@@ -1,6 +1,6 @@
 import { useEntities } from 'miniplex-react'
 import { queries, world } from '../engine/ecs'
-import { SlashingVFX, ArrowVFX, AirSwordVFX, SpawnWarningVFX, DamageTextVFX } from './VFXLibrary'
+import { SlashingVFX, ArrowVFX, AirSwordVFX, SpawnWarningVFX, DamageTextVFX, GoldCoinVFX } from './VFXLibrary'
 
 /**
  * VFXManager: 特效指挥中心
@@ -17,6 +17,7 @@ export function VFXManager() {
       <SlashingVFX entities={effectEntities.filter(e => e.effect?.type === 'slash')} />
       <ArrowVFX entities={effectEntities.filter(e => e.effect?.type === 'arrow')} />
       <AirSwordVFX entities={effectEntities.filter(e => e.effect?.type === 'air_sword')} />
+      <GoldCoinVFX entities={effectEntities.filter(e => e.effect?.type === 'gold_coin')} />
       
       {/* 伤害飘字渲染器 */}
       <DamageTextVFX entities={damageEntities} />

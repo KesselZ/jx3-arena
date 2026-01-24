@@ -51,10 +51,21 @@ export class SpatialHash {
 
     const ix1 = Math.floor(x / this.L1_CELL_SIZE)
     const iz1 = Math.floor(z / this.L1_CELL_SIZE)
+    
+    // 安全检查：防止数组越界导致 push 报错
+    if (ix1 < 0 || ix1 >= this.L1_COUNT_X || iz1 < 0 || iz1 >= this.L1_COUNT_Z) return;
+    
     const l1Idx = ix1 * this.L1_COUNT_Z + iz1
+    
+    // 终极防御：如果由于某种原因 l1Idx 还是不合法
+    if (l1Idx < 0 || l1Idx >= this.l1Cells.length || !this.l1Cells[l1Idx]) return;
 
     const ix2 = Math.floor(x / this.L2_CELL_SIZE)
     const iz2 = Math.floor(z / this.L2_CELL_SIZE)
+    
+    // 安全检查：L2 索引
+    if (ix2 < 0 || ix2 >= this.L2_COUNT_X || iz2 < 0 || iz2 >= this.L2_COUNT_Z) return;
+    
     const l2Idx = ix2 * this.L2_COUNT_Z + iz2
 
     // 映射阵营到位运算计数
