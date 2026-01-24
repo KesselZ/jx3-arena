@@ -60,6 +60,7 @@ export type Entity = {
       hitEntities: Set<string>; 
       lifeTime: number; 
       styleId: string; // 新增：记录战斗风格 ID
+      trackingCooldown?: number; // 新增：命中后的追踪冷却时间 (秒)
     };
 
   // 基础组件

@@ -143,9 +143,15 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         const tBase = (currentTime + (entity.animOffset || 0))
         
         if (intentSpeed > 0.1) {
-          // 移动动画：频率随速度动态调整
-          const speedFactor = 1 + (intentSpeed - GAME_CONFIG.BATTLE.PLAYER_INITIAL_SPEED) * 0.1
-          const freq = GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * Math.max(0.5, speedFactor)
+          // 移动动画：频率由“实际物理速度”驱动，确保视觉与位移完美同步
+          // 架构复查：使用 entity.stats.baseSpeed (实际物理系统使用的值)
+          const baseSpeed = entity.stats?.baseSpeed || 5
+          const speedMult = entity.stats?.speedMult || 1
+          const actualVelocity = intentSpeed * baseSpeed * speedMult
+          
+          // 以速度 5 为标准步频基准，计算当前的频率缩放
+          const speedFactor = actualVelocity / 5
+          const freq = GAME_CONFIG.VISUAL.ANIM_BOUNCE_FREQ * Math.max(0.2, speedFactor)
           
           const t = tBase * freq
           const sinT = Math.sin(t)

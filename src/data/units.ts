@@ -61,7 +61,7 @@ export const UNITS: Record<string, UnitConfig> = {
       }
     },
     movement: {
-      speed: 6.0
+      speed: 30.0
     }
   },
   'player_tiance': { 
@@ -77,7 +77,7 @@ export const UNITS: Record<string, UnitConfig> = {
       knockback: 100
     },
     movement: {
-      speed: 5.5
+      speed: 30.0
     }
   },
   

@@ -27,6 +27,11 @@ export function projectileSystem(dt: number) {
     const entity = projectiles[i]
     const p = entity.projectile!
 
+    // 0. 追踪冷却计时
+    if (p.trackingCooldown !== undefined && p.trackingCooldown > 0) {
+      p.trackingCooldown -= dt;
+    }
+
     // 0. 金币自动吸附逻辑 (高级算法：距离平方判定)
     if (entity.money && !p.targetId) {
       const player = queries.players.entities[0];
@@ -51,7 +56,7 @@ export function projectileSystem(dt: number) {
     const tStart = performance.now()
 
     // 2. 追踪逻辑 (使用 entityMap 优化查找性能 O(1))
-    if (p.targetId) {
+    if (p.targetId && (p.trackingCooldown === undefined || p.trackingCooldown <= 0)) {
       const target = entityMap.get(p.targetId)
       if (target && !target.dead) {
         // 简单的转向逻辑：向目标位置插值
@@ -134,6 +139,9 @@ export function projectileSystem(dt: number) {
           
           p.pierce--
           p.hitEntities.add(target.id)
+          
+          // 命中后进入短暂的追踪冷却，防止原地抽搐
+          p.trackingCooldown = 0.5; 
           
           if (p.pierce < 0) {
             world.remove(entity)
