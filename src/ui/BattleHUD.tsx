@@ -8,15 +8,16 @@ import { useRef, useEffect } from 'react'
 /**
  * 3D 性能数据采集器 (Canvas 内部组件)
  */
+const ALPHA = 0.05; // 平滑系数
+const smooth = (old: number, next: number) => (old || 0) * (1 - ALPHA) + (next || 0) * ALPHA;
+
 export function PerformanceMonitor() {
   const updateStats = useGameStore((state) => state.updateStats)
+  const lastUpdateTime = useRef(performance.now())
   const frameCount = useRef(0)
-  const lastTime = useRef(performance.now())
+  const smoothed = useRef<any>(null)
   const { gl } = useThree()
   
-  // 记录真实的渲染数据快照
-  const lastFrameStats = useRef({ calls: 0, triangles: 0 })
-
   // 关键：禁用渲染器的自动重置，由我们手动控制采集时序
   useEffect(() => {
     const originalAutoReset = gl.info.autoReset
@@ -25,35 +26,41 @@ export function PerformanceMonitor() {
   }, [gl])
 
   useFrame((state, delta) => {
-    // 1. 此时渲染器尚未开始本帧的绘制，gl.info 中保存的是【前一帧】渲染后的完整结果
-    // 注意：我们必须在 gl.info.reset() 之前读取这些数据
-    const currentDrawCalls = gl.info.render.calls
-    const currentTriangles = gl.info.render.triangles
-    const currentGeometries = gl.info.memory.geometries
-    const currentTextures = gl.info.memory.textures
-
-    // 2. 采样并推送数据到全局 Store (每秒更新一次 UI)
     frameCount.current++
-    const now = performance.now()
-    if (now - lastTime.current >= 1000) {
-      updateStats({
-        fps: frameCount.current,
-        frameTime: delta * 1000,
-        drawCalls: currentDrawCalls, // 使用实时抓取的数值
-        triangles: currentTriangles,
-        logicTime: (state as any).perfMetrics?.total || 0,
-        perfMetrics: (state as any).perfMetrics,
-        memory: {
-          geometries: currentGeometries,
-          textures: currentTextures
-        }
+    const metrics = (state as any).perfMetrics || {}
+    
+    // 1. 初始化或更新 EMA 平滑值 (仅针对逻辑耗时)
+    if (!smoothed.current) {
+      smoothed.current = { frameTime: delta * 1000, logicTime: metrics.total || 0, perfMetrics: { ...metrics } }
+    } else {
+      smoothed.current.frameTime = smooth(smoothed.current.frameTime, delta * 1000)
+      smoothed.current.logicTime = smooth(smoothed.current.logicTime, metrics.total || 0)
+      Object.keys(metrics).forEach(key => {
+        smoothed.current.perfMetrics[key] = smooth(smoothed.current.perfMetrics[key], metrics[key])
       })
+    }
+
+    // 2. 每 0.5 秒计算一次真实平均 FPS 并更新 UI
+    const now = performance.now()
+    const elapsed = now - lastUpdateTime.current
+    if (elapsed >= 500) {
+      const actualFps = Math.round((frameCount.current * 1000) / elapsed)
+      
+      updateStats({
+        fps: actualFps, // 使用真实的区间平均帧率，上限会被 VSync 锁死
+        frameTime: smoothed.current.frameTime,
+        logicTime: smoothed.current.logicTime,
+        perfMetrics: { ...smoothed.current.perfMetrics },
+        drawCalls: gl.info.render.calls,
+        triangles: gl.info.render.triangles,
+        memory: { geometries: gl.info.memory.geometries, textures: gl.info.memory.textures }
+      })
+      
+      lastUpdateTime.current = now
       frameCount.current = 0
-      lastTime.current = now
     }
     
     // 3. 重要：手动重置统计，为【本帧】接下来的绘制做准备
-    // 这样 gl.info.render.calls 就会从 0 开始重新计数本帧的绘制
     gl.info.reset()
   })
 

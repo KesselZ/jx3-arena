@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { world, Entity, spawnDamageText, spawnGold } from '../engine/ecs';
+import { world, Entity, entityMap, spawnDamageText, spawnGold } from '../engine/ecs';
 import { findNearestHostile, findHero } from '../engine/targeting';
 import { UNITS } from '../data/units';
 import { AudioAssets, SoundPriority } from '../assets/audioAssets';
@@ -32,10 +32,14 @@ export const combatSystem = (delta: number) => {
 
     if (!canAttack) continue;
 
+    // 优先使用 AI 锁定的目标，如果没有则重新寻找最近目标
     let target: Entity | null = null;
-    if (attacker.type === 'enemy') {
-      target = findHero(attacker);
-    } else {
+    if (attacker.ai?.targetId) {
+      target = entityMap.get(attacker.ai.targetId) || null;
+      if (target && target.dead) target = null;
+    }
+
+    if (!target) {
       target = findNearestHostile(attacker);
     }
 
@@ -191,7 +195,7 @@ function handleMeleeAttack(attacker: Entity, target: Entity, style: CombatStyle,
       
       // 敌人死亡掉落金币
       if (target.type === 'enemy') {
-        spawnGold(target.position, 10); // 暂定掉落 10 金币
+        // spawnGold(target.position, 10); // 消融实验：暂时关闭金币掉落
       }
 
       delete target.ai;

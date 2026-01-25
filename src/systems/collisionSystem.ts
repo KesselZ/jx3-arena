@@ -1,8 +1,9 @@
 import { queries } from '../engine/ecs'
-import { spatialHash } from '../engine/spatialHash'
+import { spatialHash, SH_CATEGORY } from '../engine/spatialHash'
 import { GAME_CONFIG } from '../data/config'
 
 const COLLISION_CACHE: any[] = [] // 零分配缓存
+const COMBATANT_MASK = SH_CATEGORY.PLAYER | SH_CATEGORY.ENEMY | SH_CATEGORY.ALLY;
 
 /**
  * collisionSystem: 碰撞系统 (SpatialHashV2 优化版)
@@ -21,9 +22,8 @@ export function collisionSystem() {
     const z = entity.position.z
     const radius = entity.stats.radius
     
-    // 1. 利用空间哈希快速获取邻居 (零分配查询)
-    // 碰撞检测通常不需要区分阵营，所以不传 targetSide
-    const neighbors = spatialHash.query(x, z, radius * 2, undefined, COLLISION_CACHE)
+    // 1. 利用空间哈希快速获取邻居 (使用掩码仅获取战斗员)
+    const neighbors = spatialHash.query(x, z, radius * 2, COMBATANT_MASK, COLLISION_CACHE)
     
     for (let j = 0; j < neighbors.length; j++) {
       const other = neighbors[j]

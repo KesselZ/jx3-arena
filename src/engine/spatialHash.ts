@@ -2,8 +2,31 @@ import { Entity } from './ecs'
 import { GAME_CONFIG } from '../data/config'
 
 /**
- * SpatialHashV2: 分层空间哈希 (基于项目原生 type 优化版)
+ * SpatialHashV2: 分层空间哈希 (基于掩码的高性能过滤版)
  */
+
+// 定义类别掩码 (Bitmask)
+export const SH_CATEGORY = {
+  NONE: 0,
+  PLAYER: 1 << 0,     // 1
+  ENEMY: 1 << 1,      // 2
+  ALLY: 1 << 2,       // 4
+  LOOT: 1 << 3,       // 8 (金币/掉落物)
+  PROJECTILE: 1 << 4, // 16 (普通弹道)
+} as const;
+
+export type SH_Category = typeof SH_CATEGORY[keyof typeof SH_CATEGORY];
+
+// 类别索引映射，用于快速定位桶
+const CAT_TO_IDX: Record<number, number> = {
+  [1 << 0]: 0, // PLAYER
+  [1 << 1]: 1, // ENEMY
+  [1 << 2]: 2, // ALLY
+  [1 << 3]: 3, // LOOT
+  [1 << 4]: 4, // PROJECTILE
+};
+const NUM_CATEGORIES = 5;
+
 export class SpatialHash {
   private readonly BOUNDS_X = GAME_CONFIG.BATTLE.SCREEN_BOUNDS.x
   private readonly BOUNDS_Z = GAME_CONFIG.BATTLE.SCREEN_BOUNDS.z
@@ -21,26 +44,53 @@ export class SpatialHash {
   private l1Blackboard: Uint32Array
   private l2Blackboard: Uint32Array
 
-  // 全局黑板：汇总全图单位数量
-  public totalFriendly = 0 // player + ally
-  public totalEnemy = 0    // enemy
+  // 核心重构：将单桶改为多桶存储 [cellIdx][categoryIdx]
+  private l1Buckets: Entity[][][]
 
-  private l1Cells: Entity[][]
+  // 性能监控计数器
+  public debugStats = {
+    insertCount: 0,
+    queryCount: 0,
+    candidateCount: 0
+  }
 
   constructor() {
-    this.l1Blackboard = new Uint32Array(this.L1_COUNT_X * this.L1_COUNT_Z)
+    const totalCells = this.L1_COUNT_X * this.L1_COUNT_Z;
+    this.l1Blackboard = new Uint32Array(totalCells)
     this.l2Blackboard = new Uint32Array(this.L2_COUNT_X * this.L2_COUNT_Z)
-    this.l1Cells = Array.from({ length: this.L1_COUNT_X * this.L1_COUNT_Z }, () => [])
+    
+    // 初始化多维桶
+    this.l1Buckets = Array.from({ length: totalCells }, () => 
+      Array.from({ length: NUM_CATEGORIES }, () => [])
+    );
   }
 
   clear() {
     this.l1Blackboard.fill(0)
     this.l2Blackboard.fill(0)
-    this.totalFriendly = 0
-    this.totalEnemy = 0
-    for (let i = 0; i < this.l1Cells.length; i++) {
-      this.l1Cells[i].length = 0 
+    this.debugStats.insertCount = 0
+    this.debugStats.queryCount = 0
+    this.debugStats.candidateCount = 0
+    
+    // 清空所有桶
+    for (let i = 0; i < this.l1Buckets.length; i++) {
+      const cell = this.l1Buckets[i];
+      for (let j = 0; j < NUM_CATEGORIES; j++) {
+        cell[j].length = 0;
+      }
     }
+  }
+
+  /**
+   * 获取实体的掩码类别
+   */
+  private getCategory(entity: Entity): SH_Category {
+    if (entity.type === 'player') return SH_CATEGORY.PLAYER;
+    if (entity.type === 'enemy') return SH_CATEGORY.ENEMY;
+    if (entity.type === 'ally') return SH_CATEGORY.ALLY;
+    if (entity.money) return SH_CATEGORY.LOOT;
+    if (entity.projectile) return SH_CATEGORY.PROJECTILE;
+    return SH_CATEGORY.NONE;
   }
 
   insert(entity: Entity) {
@@ -51,41 +101,38 @@ export class SpatialHash {
 
     const ix1 = Math.floor(x / this.L1_CELL_SIZE)
     const iz1 = Math.floor(z / this.L1_CELL_SIZE)
-    
-    // 安全检查：防止数组越界导致 push 报错
-    if (ix1 < 0 || ix1 >= this.L1_COUNT_X || iz1 < 0 || iz1 >= this.L1_COUNT_Z) return;
-    
     const l1Idx = ix1 * this.L1_COUNT_Z + iz1
     
-    // 终极防御：如果由于某种原因 l1Idx 还是不合法
-    if (l1Idx < 0 || l1Idx >= this.l1Cells.length || !this.l1Cells[l1Idx]) return;
+    if (l1Idx < 0 || l1Idx >= this.l1Buckets.length) return;
 
     const ix2 = Math.floor(x / this.L2_CELL_SIZE)
     const iz2 = Math.floor(z / this.L2_CELL_SIZE)
-    
-    // 安全检查：L2 索引
-    if (ix2 < 0 || ix2 >= this.L2_COUNT_X || iz2 < 0 || iz2 >= this.L2_COUNT_Z) return;
-    
     const l2Idx = ix2 * this.L2_COUNT_Z + iz2
 
-    // 映射阵营到位运算计数
-    // 高16位：Friendly (player/ally)
-    // 低16位：Enemy
-    const isFriendly = entity.type === 'player' || entity.type === 'ally'
-    if (isFriendly) {
-      this.totalFriendly++
-      this.l1Blackboard[l1Idx] += 0x00010000
-      this.l2Blackboard[l2Idx] += 0x00010000
-    } else if (entity.type === 'enemy') {
-      this.totalEnemy++
-      this.l1Blackboard[l1Idx] += 0x00000001
-      this.l2Blackboard[l2Idx] += 0x00000001
-    }
+    // 1. 获取类别
+    const category = this.getCategory(entity);
+    if (category === SH_CATEGORY.NONE) return; 
 
-    this.l1Cells[l1Idx].push(entity)
+    // 2. 预打标签
+    entity._shCategory = category;
+    
+    // 3. 更新黑板（位运算存在性标记）
+    this.l1Blackboard[l1Idx] |= category;
+    this.l2Blackboard[l2Idx] |= category;
+
+    // 4. 精准入桶
+    const catIdx = CAT_TO_IDX[category];
+    this.l1Buckets[l1Idx][catIdx].push(entity)
+    
+    this.debugStats.insertCount++
   }
 
-  query(x: number, z: number, range: number, targetSide?: 'friendly' | 'enemy', out?: Entity[]): Entity[] {
+  /**
+   * 查询指定范围内的实体
+   * @param mask 类别掩码，支持或运算，如 SH_CATEGORY.ENEMY | SH_CATEGORY.ALLY
+   */
+  query(x: number, z: number, range: number, mask: number = 0xFFFFFFFF, out?: Entity[]): Entity[] {
+    this.debugStats.queryCount++
     const results = out || []
     if (out) results.length = 0
     
@@ -107,10 +154,7 @@ export class SpatialHash {
         const l2Idx = Math.floor(ix2 * this.L2_COUNT_Z + iz2)
         const l2Val = this.l2Blackboard[l2Idx]
 
-        if (l2Val === 0) continue
-        // 剪枝逻辑
-        if (targetSide === 'friendly' && (l2Val & 0xFFFF0000) === 0) continue
-        if (targetSide === 'enemy' && (l2Val & 0x0000FFFF) === 0) continue
+        if (!(l2Val & mask)) continue
 
         const sX1 = Math.max(Math.floor(startX / this.L1_CELL_SIZE), ix2 * 5)
         const eX1 = Math.min(Math.floor(endX / this.L1_CELL_SIZE), (ix2 + 1) * 5 - 1)
@@ -122,19 +166,19 @@ export class SpatialHash {
             const l1Idx = ix1 * this.L1_COUNT_Z + iz1
             const l1Val = this.l1Blackboard[l1Idx]
 
-            if (l1Val === 0) continue
-            if (targetSide === 'friendly' && (l1Val & 0xFFFF0000) === 0) continue
-            if (targetSide === 'enemy' && (l1Val & 0x0000FFFF) === 0) continue
+            if (!(l1Val & mask)) continue
 
-            const cell = this.l1Cells[l1Idx]
-            for (let i = 0; i < cell.length; i++) {
-              const e = cell[i]
-              if (!targetSide) {
-                results.push(e)
-              } else {
-                const isEFriendly = e.type === 'player' || e.type === 'ally'
-                if (targetSide === 'friendly' && isEFriendly) results.push(e)
-                else if (targetSide === 'enemy' && !isEFriendly) results.push(e)
+            const cellBuckets = this.l1Buckets[l1Idx]
+            
+            // 核心重构：只遍历掩码匹配的桶
+            for (let catIdx = 0; catIdx < NUM_CATEGORIES; catIdx++) {
+              const catBit = 1 << catIdx;
+              if (catBit & mask) {
+                const bucket = cellBuckets[catIdx];
+                for (let k = 0; k < bucket.length; k++) {
+                  this.debugStats.candidateCount++;
+                  results.push(bucket[k]);
+                }
               }
             }
           }

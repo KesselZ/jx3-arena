@@ -2,8 +2,6 @@ import { world, Entity, queries, entityMap } from '../engine/ecs'
 import { findNearestHostile } from '../engine/targeting'
 import { GAME_CONFIG } from '../data/config'
 
-let aiFrameCounter = 0
-
 /**
  * AI 系统：控制角色的移动意图和索敌逻辑
  * 优化点：
@@ -39,25 +37,23 @@ export const aiSystem = (delta: number) => {
 
     if (isTickFrame || needsImmediateRescan) {
       const nearest = findNearestHostile(entity)
+      const oldTargetId = entity.ai.targetId;
       currentTarget = entity.ai.targetId ? entityMap.get(entity.ai.targetId) : undefined
 
       if (isAlly && player) {
-        // --- 友军/保镖特殊索敌逻辑 ---
+        // ... (友军逻辑保持不变)
         const distToPlayerSq = (entity.position.x - player.position.x) ** 2 + (entity.position.z - player.position.z) ** 2;
         const leashDistSq = GAME_CONFIG.PHYSICS.ALLY_LEASH_DISTANCE ** 2;
 
         if (distToPlayerSq > leashDistSq) {
-          // 强制回归：太远了，放弃任何目标
           entity.ai.targetId = undefined;
         } else if (nearest) {
-          // 在允许范围内，检查最近敌人是否也在玩家的保护圈内
           const enemyDistToPlayerSq = (nearest.position.x - player.position.x) ** 2 + (nearest.position.z - player.position.z) ** 2;
           const combatRadiusSq = GAME_CONFIG.PHYSICS.ALLY_COMBAT_RADIUS ** 2;
 
           if (enemyDistToPlayerSq < combatRadiusSq) {
             entity.ai.targetId = nearest.id;
           } else if (!currentTarget || currentTarget.dead) {
-            // 如果当前没目标，且最近敌人太远，则不主动出击
             entity.ai.targetId = undefined;
           }
         }

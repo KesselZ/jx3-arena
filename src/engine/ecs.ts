@@ -124,6 +124,8 @@ export type Entity = {
     totalWidth: number; // 总宽度 (用于居中)
     startTime: number;  // 产生时间
   };
+
+  _shCategory?: number; // 空间哈希内部使用的类别标签 (性能优化)
 }
 
 // 创建全局唯一的 ECS 世界
@@ -153,7 +155,11 @@ export const queries = {
   effects: world.with('effect'),
   projectiles: world.with('projectile', 'position', 'velocity'),
   damageDigits: world.with('damageDigit', 'position'),
-  movable: world.with('position', 'velocity').without('dead')
+  movable: world.with('position', 'velocity').without('dead'),
+  // 物理交互池：仅包含玩家、敌人、盟友、金币、弹道。彻底排除观众和纯特效。
+  physical: world.with('position', 'type').where(e => 
+    e.type === 'player' || e.type === 'enemy' || e.type === 'ally' || e.type === 'bullet'
+  ).without('dead'),
 }
 
 /**

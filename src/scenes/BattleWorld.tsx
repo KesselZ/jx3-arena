@@ -397,7 +397,7 @@ export function BattleWorld() {
       // 1. 确定禁区边界：扩大到正负 60
       const EXCLUSION_ZONE = 60
       const SAMPLE_MAX = 160 
-      const SPECTATOR_COUNT = 3000 
+      const SPECTATOR_COUNT = 1 // 消融实验：暂时设置为 1 个观众 (原 3000)
       const SPECTATOR_POOL = ['bandit', 'archer', 'ally_chunyang', 'player_tiance', 'player_wanhua'] 
       
       scene.updateMatrixWorld(true)

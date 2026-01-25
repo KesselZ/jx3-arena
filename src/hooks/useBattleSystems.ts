@@ -58,12 +58,21 @@ export function useBattleSystems(keys: any, currentWave: number) {
 
     // 3. Spatial Hash Update
     t = performance.now()
-    const combatants = queries.combatants.entities
     spatialHash.clear()
-    for (let i = 0; i < combatants.length; i++) {
-      spatialHash.insert(combatants[i])
+    // 性能优化：仅将真正需要交互的物理实体入库 (排除 3000+ 观众)
+    const physEntities = queries.physical.entities
+    for (let i = 0; i < physEntities.length; i++) {
+      spatialHash.insert(physEntities[i])
     }
-    perfMetrics.current.hash = performance.now() - t
+    const hashTime = performance.now() - t
+    perfMetrics.current.hash = hashTime
+
+    // 性能 Debug 日志：每 60 帧打印一次统计数据
+    if (state.clock.elapsedTime % 2 < 0.016) { // 约每 2 秒打印一次
+      const stats = spatialHash.debugStats;
+      console.log(`[Performance] Physical Entities: ${physEntities.length} | Hash Update: ${hashTime.toFixed(2)}ms | Total World Entities: ${world.entities.length}`);
+      console.log(`[SpatialHash] Inserts: ${stats.insertCount} | Queries: ${stats.queryCount} | Candidates Scanned: ${stats.candidateCount}`);
+    }
 
     // 4. AI System
     t = performance.now()

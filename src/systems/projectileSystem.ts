@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { world, queries, Entity, entityMap, spawnDamageText, spawnGold } from '../engine/ecs'
-import { spatialHash } from '../engine/spatialHash'
+import { spatialHash, SH_CATEGORY } from '../engine/spatialHash'
 import { GAME_CONFIG } from '../data/config'
 import { AudioAssets, SoundPriority } from '../assets/audioAssets'
 import { useGameStore } from '../store/useGameStore'
@@ -120,13 +120,22 @@ export function projectileSystem(dt: number) {
     const shouldCheck = (world.entities.length + i) % 2 === 0
 
     if (shouldCheck) {
-      // 优化：减小查询半径，从 1.0 降至 0.7 (略大于判定半径 0.6)
-      const nearby = spatialHash.query(entity.position.x, entity.position.z, 0.7)
-      
-      // 优化：将 owner 阵营判断提取到循环外（已在 i 循环内）
+      // 1. 确定查询掩码
+      let queryMask = 0;
       const owner = entityMap.get(p.ownerId)
       const isOwnerFriendly = owner ? (owner.type === 'player' || owner.type === 'ally') : false
 
+      if (entity.money) {
+        // 金币只找玩家
+        queryMask = SH_CATEGORY.PLAYER;
+      } else {
+        // 普通弹道找敌对阵营
+        queryMask = isOwnerFriendly ? SH_CATEGORY.ENEMY : (SH_CATEGORY.PLAYER | SH_CATEGORY.ALLY);
+      }
+
+      // 2. 执行高性能掩码查询
+      const nearby = spatialHash.query(entity.position.x, entity.position.z, 0.7, queryMask)
+      
       for (let j = 0; j < nearby.length; j++) {
         const target = nearby[j]
         
@@ -137,9 +146,6 @@ export function projectileSystem(dt: number) {
         const lastHitTime = p.hitEntities.get(target.id) || 0;
         const currentTime = performance.now() / 1000;
         if (currentTime - lastHitTime < p.hitInterval) continue;
-
-        const isTargetFriendly = target.type === 'player' || target.type === 'ally'
-        if (isOwnerFriendly === isTargetFriendly) continue 
 
         const distSq = (target.position.x - entity.position.x) ** 2 + 
                        (target.position.z - entity.position.z) ** 2
@@ -225,7 +231,7 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
 
       // 敌人死亡掉落金币
       if (target.type === 'enemy') {
-        spawnGold(target.position, 10);
+        // spawnGold(target.position, 10); // 消融实验：暂时关闭金币掉落
       }
     }
   }

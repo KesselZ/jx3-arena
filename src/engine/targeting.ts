@@ -1,5 +1,5 @@
 import { Entity, world } from './ecs'
-import { spatialHash } from './spatialHash'
+import { spatialHash, SH_CATEGORY } from './spatialHash'
 
 /**
  * 索敌引擎
@@ -33,17 +33,13 @@ export function findNearestHostile(attacker: Entity): Entity | null {
   const { x, z } = attacker.position
   const faction = attacker.type
   
-  // 确定我们要找哪一边
-  // 如果我是敌人，我要找主角或友军 (friendly)
-  // 如果我是主角或友军，我要找敌人 (enemy)
-  const targetSide = (faction === 'enemy') ? 'friendly' : 'enemy'
+  // 确定我们要找哪一边 (使用掩码)
+  const targetMask = (faction === 'enemy') 
+    ? (SH_CATEGORY.PLAYER | SH_CATEGORY.ALLY) 
+    : SH_CATEGORY.ENEMY;
   
-  // 1. 大黑板先行
-  if (targetSide === 'friendly' && spatialHash.totalFriendly === 0) return null
-  if (targetSide === 'enemy' && spatialHash.totalEnemy === 0) return null
-
-  // 2. 空间哈希查询
-  const candidates = spatialHash.query(x, z, 100, targetSide, QUERY_RESULT_CACHE)
+  // 2. 空间哈希查询 (使用掩码过滤)
+  const candidates = spatialHash.query(x, z, 100, targetMask, QUERY_RESULT_CACHE)
   
   let nearest: Entity | null = null
   let minDistSq = Infinity
@@ -52,6 +48,9 @@ export function findNearestHostile(attacker: Entity): Entity | null {
     const target = candidates[i]
     if (target.dead || target === attacker) continue
     
+    // 最终安全检查：必须有血条
+    if (!target.health) continue;
+
     const dx = target.position.x - x
     const dz = target.position.z - z
     const dSq = dx * dx + dz * dz
