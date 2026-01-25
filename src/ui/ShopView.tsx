@@ -1,13 +1,26 @@
 import React, { useEffect, useState } from 'react'
 import { useGameStore } from '../store/useGameStore'
+import { useAttributeStore, Modifier } from '../store/useAttributeStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AudioAssets } from '../assets/audioAssets'
+
+interface ShopItem {
+  id: number;
+  name: string;
+  desc: string;
+  cost: number;
+  icon: string;
+  effect: Omit<Modifier, 'id'>;
+}
 
 export const ShopView: React.FC = () => {
   const showShop = useGameStore((state) => state.showShop)
   const closeShop = useGameStore((state) => state.closeShop)
   const gold = useGameStore((state) => state.gold)
+  const addGold = useGameStore((state) => state.addGold)
   const wave = useGameStore((state) => state.wave)
+
+  const addModifier = useAttributeStore((state) => state.addModifier)
 
   // 监听商店显示状态，动态调整 BGM 音量
   useEffect(() => {
@@ -19,11 +32,34 @@ export const ShopView: React.FC = () => {
   }, [showShop]);
 
   // 模拟商品数据
-  const [items] = useState([
-    { id: 1, name: '洗髓经', desc: '生命上限 +20%', cost: 100, icon: '📜' },
-    { id: 2, name: '纯阳剑意', desc: '攻击力 +15%', cost: 150, icon: '⚔️' },
-    { id: 3, name: '凌波微步', desc: '移动速度 +10%', cost: 80, icon: '💨' },
+  const [items] = useState<ShopItem[]>([
+    { 
+      id: 1, name: '洗髓经', desc: '生命上限 +20%', cost: 100, icon: '📜',
+      effect: { attribute: 'maxHp', value: 0.2, type: 'MULT' }
+    },
+    { 
+      id: 2, name: '纯阳剑意', desc: '攻击力 +15%', cost: 150, icon: '⚔️',
+      effect: { attribute: 'power', value: 0.15, type: 'MULT' }
+    },
+    { 
+      id: 3, name: '凌波微步', desc: '移动速度 +10%', cost: 80, icon: '💨',
+      effect: { attribute: 'moveSpeed', value: 0.1, type: 'MULT' }
+    },
   ])
+
+  const handleBuy = (item: ShopItem) => {
+    if (gold >= item.cost) {
+      AudioAssets.play2D('CLICK_CONFIRM');
+      addGold(-item.cost);
+      addModifier({
+        ...item.effect,
+        id: `shop_item_${item.id}_${Date.now()}`
+      });
+      // 这里可以添加一个购买成功的反馈，比如从列表中移除或标记已购
+    } else {
+      AudioAssets.play2D('CLICK_PRESS'); // 钱不够的音效
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -71,25 +107,40 @@ export const ShopView: React.FC = () => {
             {/* 中间商品区 */}
             <div className="flex-1 p-10 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {items.map((item, index) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                    className="group relative bg-white/50 border-2 border-jx3-ink/10 p-6 hover:border-jx3-gold transition-all cursor-pointer flex flex-col items-center text-center"
-                  >
-                    <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
-                    <h3 className="text-xl font-bold text-jx3-ink mb-2">{item.name}</h3>
-                    <p className="text-sm text-jx3-ink/60 mb-6">{item.desc}</p>
-                    <div className="mt-auto w-full">
-                      <div className="text-jx3-gold font-bold mb-2">{item.cost} 碎银</div>
-                      <button className="w-full py-2 bg-jx3-ink text-jx3-gold text-sm font-bold opacity-40 cursor-not-allowed border border-jx3-gold/30">
-                        暂不可购
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+                {items.map((item, index) => {
+                  const canAfford = gold >= item.cost;
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + index * 0.1 }}
+                      onClick={() => canAfford && handleBuy(item)}
+                      className={`group relative bg-white/50 border-2 p-6 transition-all cursor-pointer flex flex-col items-center text-center
+                        ${canAfford ? 'border-jx3-ink/10 hover:border-jx3-gold hover:bg-white' : 'opacity-60 grayscale cursor-not-allowed border-red-200'}
+                      `}
+                    >
+                      <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
+                      <h3 className="text-xl font-bold text-jx3-ink mb-2">{item.name}</h3>
+                      <p className="text-sm text-jx3-ink/60 mb-6">{item.desc}</p>
+                      <div className="mt-auto w-full">
+                        <div className={`font-bold mb-2 ${canAfford ? 'text-jx3-gold' : 'text-red-500'}`}>
+                          {item.cost} 碎银
+                        </div>
+                        <button 
+                          className={`w-full py-2 font-bold text-sm border transition-all
+                            ${canAfford 
+                              ? 'bg-jx3-ink text-jx3-gold border-jx3-gold group-hover:bg-jx3-gold group-hover:text-jx3-ink' 
+                              : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'}
+                          `}
+                          disabled={!canAfford}
+                        >
+                          {canAfford ? '立即参悟' : '碎银不足'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
                 
                 {/* 占位符 */}
                 {[1, 2, 3].map((i) => (

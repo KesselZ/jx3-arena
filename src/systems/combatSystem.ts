@@ -5,6 +5,7 @@ import { spatialHash, SH_CATEGORY } from '../engine/spatialHash';
 import { UNITS } from '../data/units';
 import { AudioAssets, SoundPriority } from '../assets/audioAssets';
 import { COMBAT_STYLES, CombatStyle } from '../data/combatConfig';
+import { useAttributeStore } from '../store/useAttributeStore';
 
 /**
  * 战斗系统：负责检测范围并触发攻击逻辑
@@ -12,8 +13,22 @@ import { COMBAT_STYLES, CombatStyle } from '../data/combatConfig';
 export const combatSystem = (delta: number) => {
   const currentTime = performance.now() / 1000;
   
+  // 获取玩家动态属性
+  const playerPower = useAttributeStore.getState().getFinalStat('power');
+  const playerSpeed = useAttributeStore.getState().getFinalStat('speed');
+  const playerRange = useAttributeStore.getState().getFinalStat('range');
+
   for (const attacker of world.entities) {
     if (!attacker.attack || attacker.dead || (attacker.spawnTimer !== undefined && attacker.spawnTimer > 0)) continue;
+
+    const isPlayer = attacker.type === 'player';
+    
+    // 动态覆盖玩家属性
+    if (isPlayer) {
+      attacker.attack.power = playerPower;
+      attacker.attack.speed = playerSpeed;
+      attacker.attack.range = playerRange;
+    }
 
     let canAttack = false;
     const isBursting = (attacker.burstRemaining || 0) > 0;

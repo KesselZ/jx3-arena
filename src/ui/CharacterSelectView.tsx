@@ -1,5 +1,6 @@
 import React from 'react'
 import { useGameStore } from '../store/useGameStore'
+import { useAttributeStore } from '../store/useAttributeStore'
 import { Assets } from '../assets/assets'
 import { UNITS } from '../data/units'
 import { CHARACTER_UI_INFOS } from '../data/characterInfo'
@@ -57,6 +58,34 @@ export const CharacterSelectView = () => {
       AudioAssets.play2D('CLICK_CONFIRM')
       setSelectedCharacter(activeUnit.id as any)
       
+      // 初始化属性系统：将单位的基础属性同步到 AttributeStore
+      const { setBaseStats, addModifier } = useAttributeStore.getState();
+      setBaseStats({
+        power: activeUnit.combat.power,
+        speed: activeUnit.combat.speed,
+        range: activeUnit.combat.range,
+        maxHp: 100,
+        armor: 10,
+        moveSpeed: activeUnit.movement.speed,
+        pickupRange: 5.0
+      });
+
+      // 【算法测试】假装玩家已经获得了一个“神力”道具，增加 50% 伤害
+      addModifier({
+        id: 'test_god_power',
+        attribute: 'power',
+        value: 0.5,
+        type: 'MULT'
+      });
+
+      // 【算法测试】假装玩家获得了一个“轻灵”效果，增加 20% 攻速
+      addModifier({
+        id: 'test_agility',
+        attribute: 'speed',
+        value: 0.2,
+        type: 'MULT'
+      });
+
       // 声明式触发：我只想开始这个角色的剧情，具体内容由 Store 决定
       const { triggerDialogue } = useGameStore.getState();
       triggerDialogue(activeUnit.id);
