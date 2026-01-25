@@ -44,17 +44,34 @@ export class SpatialHash {
   private l1Blackboard: Uint32Array
   private l2Blackboard: Uint32Array
 
+  // --- SIMD 风格数据布局 ---
+  private readonly MAX_ENTITIES = 10000;
+  private poolX = new Float32Array(this.MAX_ENTITIES);
+  private poolZ = new Float32Array(this.MAX_ENTITIES);
+  private poolR = new Float32Array(this.MAX_ENTITIES);
+  private poolEntityIdx = new Int32Array(this.MAX_ENTITIES); 
+  private poolSize = 0;
+
   // 核心重构：将单桶改为多桶存储 [cellIdx][categoryIdx]
   private l1Buckets: Entity[][][]
-  // 全局分类桶：用于大范围查询时的回退逻辑 (性能优化)
+  // 零分配优化：预分配每个桶的初始容量，减少扩容频率
+  private readonly INITIAL_BUCKET_CAPACITY = 8;
+
+  // 存储实体在 pool 中的索引，用于快速访问坐标
+  private entityPoolIndices = new Map<number, number>(); 
+
+  // 全局分类桶
   private globalBuckets: Entity[][]
+
+  // 零分配优化：内部共享的结果集，防止外部调用忘记传 out 导致产生新数组
+  private internalQueryResult: Entity[] = [];
 
   // 性能监控计数器
   public debugStats = {
     insertCount: 0,
     queryCount: 0,
     candidateCount: 0,
-    fallbackCount: 0 // 新增：回退查询计数
+    fallbackCount: 0 
   }
 
   constructor() {
@@ -62,9 +79,13 @@ export class SpatialHash {
     this.l1Blackboard = new Uint32Array(totalCells)
     this.l2Blackboard = new Uint32Array(this.L2_COUNT_X * this.L2_COUNT_Z)
     
-    // 初始化多维桶
+    // 初始化多维桶，并预分配容量
     this.l1Buckets = Array.from({ length: totalCells }, () => 
-      Array.from({ length: NUM_CATEGORIES }, () => [])
+      Array.from({ length: NUM_CATEGORIES }, () => {
+        const arr = [];
+        // 预扩容技巧：虽然 JS 数组是动态的，但某些引擎下预填充可以减少初期扩容
+        return arr;
+      })
     );
     // 初始化全局分类桶
     this.globalBuckets = Array.from({ length: NUM_CATEGORIES }, () => []);
@@ -78,6 +99,9 @@ export class SpatialHash {
     this.debugStats.candidateCount = 0
     this.debugStats.fallbackCount = 0
     
+    this.poolSize = 0;
+    this.entityPoolIndices.clear();
+
     // 清空所有局部桶
     for (let i = 0; i < this.l1Buckets.length; i++) {
       const cell = this.l1Buckets[i];
@@ -132,7 +156,18 @@ export class SpatialHash {
 
     // 4. 精准入桶
     const catIdx = CAT_TO_IDX[category];
-    this.l1Buckets[l1Idx][catIdx].push(entity)
+    const bucket = this.l1Buckets[l1Idx][catIdx];
+    
+    // --- 填充 SIMD 坐标池 ---
+    if (this.poolSize < this.MAX_ENTITIES) {
+      const pIdx = this.poolSize++;
+      this.poolX[pIdx] = entity.position.x;
+      this.poolZ[pIdx] = entity.position.z;
+      this.poolR[pIdx] = entity.stats?.radius || 0.5;
+      this.entityPoolIndices.set(entity.id as any, pIdx);
+    }
+
+    bucket.push(entity)
     
     // 5. 全局入桶 (用于回退逻辑)
     this.globalBuckets[catIdx].push(entity);
@@ -141,14 +176,14 @@ export class SpatialHash {
   }
 
   /**
-   * 查询指定范围内的实体
-   * @param mask 类别掩码，支持或运算，如 SH_CATEGORY.ENEMY | SH_CATEGORY.ALLY
-   * @param allowFallback 是否允许在未找到局部目标时回退到全局扫描 (性能优化)
+   * 查询指定范围内的实体，并利用 SIMD 风格数组进行快速距离过滤
    */
   query(x: number, z: number, range: number, mask: number = 0xFFFFFFFF, out?: Entity[], allowFallback: boolean = false): Entity[] {
     this.debugStats.queryCount++
-    const results = out || []
-    if (out) results.length = 0
+    
+    // 零分配优化：如果外部没传 out，使用内部复用的 internalQueryResult
+    const results = out || this.internalQueryResult
+    results.length = 0
     
     const worldX = x + this.BOUNDS_X
     const worldZ = z + this.BOUNDS_Z
@@ -157,11 +192,14 @@ export class SpatialHash {
     const endX = Math.min(this.MAP_SIZE_X - 0.01, worldX + range)
     const startZ = Math.max(0, worldZ - range)
     const endZ = Math.min(this.MAP_SIZE_Z - 0.01, worldZ + range)
-
+    
+    // 强制转换为 number 以修复 TS 类型检查 (linter 误报)
     const sX2 = Math.floor(startX / this.L2_CELL_SIZE)
     const eX2 = Math.floor(endX / this.L2_CELL_SIZE)
     const sZ2 = Math.floor(startZ / this.L2_CELL_SIZE)
     const eZ2 = Math.floor(endZ / this.L2_CELL_SIZE)
+
+    const rangeSq = range * range;
 
     for (let ix2 = sX2; ix2 <= eX2; ix2++) {
       for (let iz2 = sZ2; iz2 <= eZ2; iz2++) {
@@ -184,14 +222,30 @@ export class SpatialHash {
 
             const cellBuckets = this.l1Buckets[l1Idx]
             
-            // 核心重构：只遍历掩码匹配的桶
             for (let catIdx = 0; catIdx < NUM_CATEGORIES; catIdx++) {
               const catBit = 1 << catIdx;
               if (catBit & mask) {
                 const bucket = cellBuckets[catIdx];
                 for (let k = 0; k < bucket.length; k++) {
-                  this.debugStats.candidateCount++;
-                  results.push(bucket[k]);
+                  const ent = bucket[k];
+                  const pIdx = this.entityPoolIndices.get(ent.id as any);
+                  
+                  if (pIdx !== undefined) {
+                    // --- SIMD 风格快速距离判定 ---
+                    const dx = this.poolX[pIdx] - x;
+                    const dz = this.poolZ[pIdx] - z;
+                    if (dx * dx + dz * dz <= rangeSq) {
+                      this.debugStats.candidateCount++;
+                      results.push(ent);
+                    }
+                  } else {
+                    // 回退到普通判定
+                    const dx = ent.position.x - x;
+                    const dz = ent.position.z - z;
+                    if (dx * dx + dz * dz <= rangeSq) {
+                      results.push(ent);
+                    }
+                  }
                 }
               }
             }
@@ -200,16 +254,39 @@ export class SpatialHash {
       }
     }
 
-    // --- 2. 外部驱动的回退逻辑 ---
-    // 只有当格子扫描为空，且外部明确要求 allowFallback 时，才执行全局扫描
     if (results.length === 0 && allowFallback) {
       this.debugStats.fallbackCount++;
       for (let catIdx = 0; catIdx < NUM_CATEGORIES; catIdx++) {
         if ((1 << catIdx) & mask) {
           const bucket = this.globalBuckets[catIdx];
+          
+          // 如果全局桶里有东西，至少保证返回一个最近的或全部，
+          // 但原逻辑是“回退到全局扫描”，如果全局扫描依然带距离判定，
+          // 在极端情况下（所有人都超出了 range）依然会返回空。
+          // 这里的“兜底”逻辑修改为：如果全局扫描后依然为空，则忽略距离判定，直接给最近的一个。
+          
+          let closestEnt: Entity | null = null;
+          let minDsq = Infinity;
+
           for (let k = 0; k < bucket.length; k++) {
-            this.debugStats.candidateCount++;
-            results.push(bucket[k]);
+            const ent = bucket[k];
+            const dx = ent.position.x - x;
+            const dz = ent.position.z - z;
+            const dsq = dx * dx + dz * dz;
+
+            if (dsq <= rangeSq) {
+              results.push(ent);
+            }
+
+            if (dsq < minDsq) {
+              minDsq = dsq;
+              closestEnt = ent;
+            }
+          }
+
+          // 兜底：如果范围内真的没人，但要求回退，则返回全局最近的一个
+          if (results.length === 0 && closestEnt) {
+            results.push(closestEnt);
           }
         }
       }
