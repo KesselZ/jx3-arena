@@ -5,6 +5,8 @@ export const SPRITE_SHEETS = {
   'player': { path: '/assets/characters/chunyang.png', rows: 4, cols: 4 },
   'wanhua': { path: '/assets/characters/wanhua.png', rows: 4, cols: 4 },
   'tiance4': { path: '/assets/characters/tiance4.png', rows: 4, cols: 4 },
+  'tiance2': { path: '/assets/characters/tiance2.png', rows: 4, cols: 4 },
+  'tiance': { path: '/assets/characters/tiance.png', rows: 4, cols: 4 },
   'chunyang': { path: '/assets/characters/chunyang.png', rows: 4, cols: 4 },
   'chunyang3': { path: '/assets/characters/chunyang3.png', rows: 4, cols: 4 },
 };
@@ -103,6 +105,54 @@ export const UNITS: Record<string, UnitConfig> = {
     },
     movement: {
       speed: 32.0
+    }
+  },
+  'player_tangmen_senior': { 
+    sheet: 'tiance2', row: 1, col: 1, name: '唐门师兄', 
+    anchor: 'bottom',
+    isPlayable: true,
+    scale: 1.5,
+    combat: {
+      styleId: 'air_sword',
+      range: 12.0,
+      speed: 1.8,
+      power: 25,
+      knockback: 80,
+      burst: 5,
+      burstInterval: 0.05,
+      projectile: {
+        speed: 35,
+        pierce: 1,
+        logic: 'straight',
+        lifeTime: 1.5
+      }
+    },
+    movement: {
+      speed: 35.0
+    }
+  },
+  'player_badao_senior': { 
+    sheet: 'tiance', row: 0, col: 3, name: '霸刀师兄', 
+    anchor: 'bottom',
+    isPlayable: true,
+    scale: 1.6,
+    combat: {
+      styleId: 'air_sword',
+      range: 10.0,
+      speed: 1.2,
+      power: 35,
+      knockback: 150,
+      burst: 2,
+      burstInterval: 0.2,
+      projectile: {
+        speed: 22,
+        pierce: 999,
+        logic: 'tracking',
+        lifeTime: 2.5
+      }
+    },
+    movement: {
+      speed: 28.0
     }
   },
   

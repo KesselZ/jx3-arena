@@ -71,8 +71,42 @@ export const CHARACTER_UI_INFOS: Record<string, CharacterUIInfo> = {
         { label: '基础生命', value: '-10%', isPositive: false },
       ],
       displayStats: {
-        health: '1100',
-        speed: '灵动'
-      }
+      health: '1100',
+      speed: '灵动'
     }
-  };
+  },
+  'player_tangmen_senior': {
+    id: 'player_tangmen_senior',
+    name: '唐门师兄',
+    sect: '唐门',
+    title: '追魂夺命',
+    description: '蜀中唐门，暗器之王。以机关暗器闻名天下，身法诡谲，令人防不胜防。',
+    difficulty: 5,
+    traits: [
+      { label: '暗器伤害', value: '+50%', isPositive: true },
+      { label: '暴击几率', value: '+20%', isPositive: true },
+      { label: '基础生命', value: '-15%', isPositive: false },
+    ],
+    displayStats: {
+      health: '950',
+      speed: '极快'
+    }
+  },
+  'player_badao_senior': {
+    id: 'player_badao_senior',
+    name: '霸刀师兄',
+    sect: '霸刀山庄',
+    title: '傲霜凌雪',
+    description: '北地霸刀，刀气纵横。以长刀、短刀、鞘刀三态切换闻名，刀法刚猛，气势磅礴。',
+    difficulty: 4,
+    traits: [
+      { label: '刀气伤害', value: '+40%', isPositive: true },
+      { label: '破防能力', value: '+30%', isPositive: true },
+      { label: '攻击速度', value: '-10%', isPositive: false },
+    ],
+    displayStats: {
+      health: '1400',
+      speed: '沉稳'
+    }
+  }
+};

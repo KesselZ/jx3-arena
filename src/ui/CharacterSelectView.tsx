@@ -45,7 +45,11 @@ export const CharacterSelectView = () => {
     title: '无名侠士',
     description: '此人行踪诡秘，江湖上鲜有其传闻。',
     difficulty: 3,
-    traits: []
+    traits: [],
+    displayStats: {
+      health: '未知',
+      speed: '未知'
+    }
   }
 
   const handleConfirm = () => {
