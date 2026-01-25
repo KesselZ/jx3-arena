@@ -113,16 +113,15 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: true,
     scale: 1.5,
     combat: {
-      styleId: 'air_sword',
+      styleId: 'arrow', // 切换为箭矢风格
       range: 12.0,
       speed: 1.8,
-      power: 25,
+      power: 35,
       knockback: 80,
-      burst: 5,
-      burstInterval: 0.05,
+      burst: 1,
       projectile: {
-        speed: 35,
-        pierce: 1,
+        speed: 40,      // 暗器速度极快
+        pierce: 999,    // 几乎无限穿透
         logic: 'straight',
         lifeTime: 1.5
       }

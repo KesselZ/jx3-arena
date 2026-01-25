@@ -134,7 +134,7 @@ export function projectileSystem(dt: number) {
       }
 
       // 2. 执行高性能掩码查询
-      const nearby = spatialHash.query(entity.position.x, entity.position.z, 0.7, queryMask)
+      const nearby = spatialHash.query(entity.position.x, entity.position.z, 1.2, queryMask)
       
       for (let j = 0; j < nearby.length; j++) {
         const target = nearby[j]
@@ -150,7 +150,7 @@ export function projectileSystem(dt: number) {
         const distSq = (target.position.x - entity.position.x) ** 2 + 
                        (target.position.z - entity.position.z) ** 2
         
-        if (distSq < 0.6 * 0.6) {
+        if (distSq < 1.0 * 1.0) { // 增大判定半径，防止高速弹道穿模
           applyProjectileHit(entity, target)
           
           p.pierce--

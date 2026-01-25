@@ -34,7 +34,7 @@ export const COMBAT_STYLES: Record<string, CombatStyle> = {
   'arrow': {
     id: 'arrow',
     logic: 'ranged',
-    hitInterval: 999, // 箭矢通常只命中一次
+    hitInterval: 0.1, // 调小间隔，确保穿透时能灵敏触发
     sfx: { fire: 'ARROW', hit: 'HIT_BODY' },
     vfx: { type: 'arrow', duration: 2.0 } // 弹道寿命
   },
