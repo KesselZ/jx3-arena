@@ -177,6 +177,9 @@ export function spawnDamageText(value: number, position: Position) {
   const totalWidth = str.length
   const now = performance.now() / 1000
 
+  // 性能保护：如果当前飘字过多，跳过生成
+  if (queries.damageDigits.entities.length > 1500) return;
+
   for (let i = 0; i < str.length; i++) {
     // 优先从池子取
     let e = entityPools.damageDigit.pop();
@@ -199,8 +202,10 @@ export function spawnDamageText(value: number, position: Position) {
     };
 
     if (e) {
-      // 安全复用：彻底覆盖旧数据
+      // 安全复用：彻底覆盖旧数据，但保留原始 ID 以防止 GPU 缓冲区溢出
+      const oldId = e.id;
       Object.assign(e, digitData);
+      e.id = oldId; 
       // 重新加入世界（如果之前被移出了）
       world.add(e);
     } else {
@@ -216,6 +221,9 @@ export function spawnDamageText(value: number, position: Position) {
 export function spawnGold(position: Position, amount: number = 1) {
   const now = performance.now() / 1000;
   
+  // 性能保护：如果当前金币过多，跳过生成
+  if (queries.projectiles.entities.filter(e => e.money).length > 400) return;
+
   // 每次掉落 1-3 枚金币，视觉效果更好
   const count = Math.min(3, amount);
   const valuePerCoin = Math.ceil(amount / count);
@@ -269,7 +277,9 @@ export function spawnGold(position: Position, amount: number = 1) {
     };
 
     if (e) {
+      const oldId = e.id;
       Object.assign(e, goldData);
+      e.id = oldId;
       world.add(e);
     } else {
       world.add(goldData as Entity);

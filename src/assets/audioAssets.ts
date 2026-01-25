@@ -99,33 +99,50 @@ class AudioManager {
   /**
    * 初始化监听器，必须挂载到相机上
    */
-  init(camera: THREE.Camera) {
-    // 核心修复：如果监听器已存在，确保它被移动到当前的活跃相机上
+  /**
+   * 确保 AudioListener 存在（单例模式）
+   */
+  private ensureListener() {
     if (!this.listener) {
       this.listener = new THREE.AudioListener();
-      console.log(`[AudioDebug] Listener Created`);
+      
+      // 处理浏览器自动播放限制
+      const audioContext = THREE.AudioContext.getContext();
+      const resumeAudio = () => {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        if (this.bgmInstance && !this.bgmInstance.playing()) {
+          this.bgmInstance.play();
+        }
+        window.removeEventListener('click', resumeAudio);
+      };
+      window.addEventListener('click', resumeAudio);
     }
-    
-    if (this.listener.parent) {
-      this.listener.parent.remove(this.listener);
-    }
-    camera.add(this.listener);
-    console.log(`[AudioDebug] Listener attached to camera:`, camera.type);
-    
-    // 处理浏览器自动播放限制
-    const resumeAudio = () => {
-      if (THREE.AudioContext.getContext().state === 'suspended') {
-        THREE.AudioContext.getContext().resume();
-      }
-      // Howler 也会自动尝试恢复
-      if (this.bgmInstance && this.bgmInstance.state() === 'loaded') {
-        this.bgmInstance.play();
-      }
-      window.removeEventListener('click', resumeAudio);
-    };
-    window.addEventListener('click', resumeAudio);
-    
     return this.listener;
+  }
+
+  /**
+   * 将监听器挂载到指定相机（优雅搬家）
+   */
+  updateListener(camera: THREE.Camera) {
+    const listener = this.ensureListener();
+    if (listener.parent !== camera) {
+      if (listener.parent) {
+        listener.parent.remove(listener);
+      }
+      camera.add(listener);
+      console.log(`[AudioManager] 耳朵已优雅搬家到新相机: ${camera.type}`);
+    }
+  }
+
+  /**
+   * 兼容旧 init 接口，内部调用 ensureListener
+   */
+  init(camera?: THREE.Camera) {
+    const listener = this.ensureListener();
+    if (camera) this.updateListener(camera);
+    return listener;
   }
 
   /**
@@ -274,11 +291,6 @@ class AudioManager {
       const camPos = this.listener.getWorldPosition(new THREE.Vector3());
       const distSq = (options.position.x - camPos.x) ** 2 + (options.position.z - camPos.z) ** 2;
       
-      // 添加调试日志：每 20 次播放打印一次，避免刷屏
-      if (Math.random() < 0.05) {
-        console.log(`[AudioDebug] ID: ${id}, CamPos: ${camPos.x.toFixed(1)},${camPos.z.toFixed(1)}, SoundPos: ${options.position.x.toFixed(1)},${options.position.z.toFixed(1)}, Dist: ${Math.sqrt(distSq).toFixed(1)}`);
-      }
-
       if (distSq > 50 * 50) return; // 50米外直接丢弃
     }
 
@@ -310,8 +322,8 @@ class AudioManager {
     
     // --- 1. 真正的 3D 物理属性设置 ---
     sound.setBuffer(buffer);
-    sound.setRefDistance(1);  // 1米内满音量
-    sound.setMaxDistance(5);  // 5米外完全消失！极端的近大远小
+    sound.setRefDistance(10); // 10米内满音量
+    sound.setMaxDistance(30); // 30米外完全消失
     sound.setDistanceModel('exponential'); 
     
     // --- 2. 音效随机化 (高级音响工程师秘籍) ---
@@ -321,7 +333,7 @@ class AudioManager {
     
     // 随机音量：微小的力度变化
     const volRandom = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1
-    sound.setVolume((config.volume || 1) * volumeMult * volRandom * 2.0); // 进一步提升近处音量至 2 倍，增强冲击力
+    sound.setVolume((config.volume || 1) * volumeMult * volRandom); // 恢复正常音量倍率
 
     const mesh = new THREE.Object3D();
     mesh.position.set(position.x, position.y || 0, position.z);
@@ -340,17 +352,8 @@ class AudioManager {
       root = root.parent;
     }
     
-    // 如果追溯到的根节点不是 Scene，尝试从 listener 的 parent 链之外寻找
-    // 在 R3F 中，有时候需要通过这种方式确保加到世界
     root.add(mesh);
     
-    // 调试日志：检查场景和位置
-    if (Math.random() < 0.05) {
-      const worldPos = new THREE.Vector3();
-      mesh.getWorldPosition(worldPos);
-      console.log(`[AudioDebug] 3D Sound Object - Name: ${id}, RootType: ${root.type}, MeshWorldPos: ${worldPos.x.toFixed(1)},${worldPos.z.toFixed(1)}`);
-    }
-
     sound.play();
   }
 

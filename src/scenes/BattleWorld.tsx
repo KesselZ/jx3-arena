@@ -338,10 +338,8 @@ export function BattleWorld() {
   const dofRef = useRef<any>(null)
 
   useFrame((state) => {
-    // [优化] 仅在初始化时或相机变化时调用，避免每帧重复逻辑
-    if (!AudioAssets['listener']) {
-      AudioAssets.init(state.camera);
-    }
+    // [优雅同步] 仅在相机实例变化时进行“搬家”操作
+    AudioAssets.updateListener(state.camera);
     
     if (!dofRef.current) return
     const player = world.entities.find(e => e.id === 'player-main')
