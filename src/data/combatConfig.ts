@@ -8,6 +8,11 @@ export interface CombatStyle {
   id: string;
   logic: 'melee' | 'ranged';
   hitInterval?: number; // 新增：该风格弹道的默认命中间隔 (秒)
+  aoe?: {
+    type: 'sector' | 'circle';
+    angle?: number; // 扇形角度 (弧度)
+    radius?: number; // 如果不填则使用攻击者自身的攻击范围
+  };
   sfx?: {
     fire?: SoundID;    // 发起动作时的音效
     hit?: SoundID;     // 命中时的音效
@@ -22,6 +27,20 @@ export const COMBAT_STYLES: Record<string, CombatStyle> = {
   'slash': {
     id: 'slash',
     logic: 'melee',
+    sfx: { fire: 'SLASH', hit: 'HIT_BODY' },
+    vfx: { type: 'slash', duration: 0.3 }
+  },
+  'slash_aoe': {
+    id: 'slash_aoe',
+    logic: 'melee',
+    aoe: { type: 'sector', angle: Math.PI * 0.7 }, // 约 126 度，中等范围
+    sfx: { fire: 'SLASH', hit: 'HIT_BODY' },
+    vfx: { type: 'slash', duration: 0.3 }
+  },
+  'slash_wide': {
+    id: 'slash_wide',
+    logic: 'melee',
+    aoe: { type: 'sector', angle: Math.PI }, // 180 度大范围
     sfx: { fire: 'SLASH', hit: 'HIT_BODY' },
     vfx: { type: 'slash', duration: 0.3 }
   },

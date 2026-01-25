@@ -73,8 +73,8 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: true,
     scale: 1.6,
     combat: {
-      styleId: 'slash',
-      range: 0.5,
+      styleId: 'slash_aoe', // 天策：中小范围 AOE
+      range: 4.0,           // 增加攻击距离
       speed: 1.2,
       power: 25,
       knockback: 100
@@ -136,19 +136,12 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: true,
     scale: 1.6,
     combat: {
-      styleId: 'air_sword',
-      range: 10.0,
-      speed: 1.2,
-      power: 35,
-      knockback: 150,
-      burst: 2,
-      burstInterval: 0.2,
-      projectile: {
-        speed: 22,
-        pierce: 999,
-        logic: 'tracking',
-        lifeTime: 2.5
-      }
+      styleId: 'slash_wide', // 霸刀：180度大范围 AOE
+      range: 6.0,            // 更远的攻击距离
+      speed: 1.0,            // 攻速稍慢，体现重武器感
+      power: 45,             // 伤害更高
+      knockback: 180,
+      burst: 1
     },
     movement: {
       speed: 28.0
@@ -162,8 +155,8 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: false,
     scale: 1.2,
     combat: {
-      styleId: 'slash',
-      range: 0.3,
+      styleId: 'slash', // 友军弟子也是单体攻击
+      range: 1.5,
       speed: 1.0,
       power: 10,
       knockback: 1.5
@@ -180,8 +173,8 @@ export const UNITS: Record<string, UnitConfig> = {
     isPlayable: false,
     scale: 1.2,
     combat: {
-      styleId: 'slash',
-      range: 0.3,
+      styleId: 'slash', // 回退到普通单体攻击
+      range: 1.5,       // 稍微合理的近战距离
       speed: 1.2,
       power: 18,
       knockback: 1.2

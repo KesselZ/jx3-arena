@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { world, Entity, entityMap, spawnDamageText, spawnGold } from '../engine/ecs';
 import { findNearestHostile, findHero } from '../engine/targeting';
+import { spatialHash, SH_CATEGORY } from '../engine/spatialHash';
 import { UNITS } from '../data/units';
 import { AudioAssets, SoundPriority } from '../assets/audioAssets';
 import { COMBAT_STYLES, CombatStyle } from '../data/combatConfig';
@@ -159,61 +160,61 @@ function handleRangedAttack(attacker: Entity, target: Entity, style: CombatStyle
  * 处理近战攻击逻辑
  */
 function handleMeleeAttack(attacker: Entity, target: Entity, style: CombatStyle, nx: number, nz: number, time: number, dist: number, angle: number) {
-  // 1. 直接伤害逻辑
-  const kbPower = attacker.attack!.knockback || 0;
-  const targetMass = target.physics?.mass || 1;
-  const finalKnockback = kbPower / targetMass;
+  // --- 核心重构：AOE 检测 ---
+  const isPlayer = attacker.type === 'player';
+  const damage = attacker.attack!.power;
+  const range = attacker.attack!.range + (attacker.stats?.radius || 0);
+  
+  // 1. 确定命中目标列表
+  let hitTargets: Entity[] = [];
 
-  if (target.velocity && target.type !== 'player') {
-    target.velocity.x += nx * finalKnockback;
-    target.velocity.z += nz * finalKnockback;
-  }
-
-  if (target.health) {
-    const damage = attacker.attack!.power;
-    target.health.current -= damage;
-    target.health.lastHitTime = time;
+  if (style.aoe) {
+    // AOE 逻辑：使用 SpatialHash 查找范围内所有敌人
+    const queryMask = isPlayer ? SH_CATEGORY.ENEMY : (SH_CATEGORY.PLAYER | SH_CATEGORY.ALLY);
+    const nearby = spatialHash.query(attacker.position.x, attacker.position.z, range + 2, queryMask);
     
-    // 只有敌人掉血才触发伤害飘字
-    if (target.type === 'enemy') {
-      spawnDamageText(damage, target.position);
-    }
+    for (const potential of nearby) {
+      if (potential.dead || !potential.health || potential.id === attacker.id) continue;
 
-    // 播放命中音效 (使用 Style 定义的 hit 音效)
-    const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;
-    AudioAssets.play(style.sfx.hit, { 
-      position: target.position, 
-      priority: hitPriority,
-      sourceType: target.type as any
-    });
+      const dx = potential.position.x - attacker.position.x;
+      const dz = potential.position.z - attacker.position.z;
+      const dSq = dx * dx + dz * dz;
+      const combinedRadius = (attacker.stats?.radius || 0) + (potential.stats?.radius || 0);
+      const effectiveRange = range + combinedRadius;
 
-    if (target.health.current <= 0) {
-      target.health.current = 0;
-      target.dead = true;
-      target.deathTime = time;
-      target.deathDir = { x: nx, y: 0, z: nz };
-      
-      // 敌人死亡掉落金币
-      if (target.type === 'enemy') {
-        spawnGold(target.position, 10); 
-      }
-
-      delete target.ai;
-      delete target.attack;
-      delete target.input;
-      if (target.velocity) {
-        target.velocity.x = 0;
-        target.velocity.z = 0;
+      if (dSq <= effectiveRange * effectiveRange) {
+        if (style.aoe.type === 'sector') {
+          // 扇形判定
+          const angleToTarget = Math.atan2(dx, dz);
+          let deltaAngle = Math.abs(angleToTarget - angle);
+          if (deltaAngle > Math.PI) deltaAngle = Math.PI * 2 - deltaAngle;
+          
+          if (deltaAngle <= (style.aoe.angle || Math.PI) / 2) {
+            hitTargets.push(potential);
+          }
+        } else {
+          // 圆形判定
+          hitTargets.push(potential);
+        }
       }
     }
+  } else {
+    // 单体逻辑：只打当前锁定目标
+    hitTargets.push(target);
   }
 
-  // 2. 产生近战特效
+  // 2. 统一处理所有命中的目标
+  for (const hitTarget of hitTargets) {
+    applyMeleeHit(attacker, hitTarget, style, time);
+  }
+
+  // 3. 产生近战特效 (只在攻击发起处产生一个)
   const effectData: Entity = {
     id: `fx-${performance.now()}-${Math.random()}`,
     type: 'effect',
     position: { x: attacker.position.x, y: attacker.position.y, z: attacker.position.z },
     velocity: { x: 0, y: 0, z: 0 },
+    moveIntent: { x: 0, y: 0, z: 0 },
     health: { current: 1, max: 1 },
     lifetime: { remaining: style.vfx.duration },
     effect: {
@@ -228,4 +229,64 @@ function handleMeleeAttack(attacker: Entity, target: Entity, style: CombatStyle,
     }
   };
   world.add(effectData);
+}
+
+/**
+ * 应用单次近战命中效果
+ */
+function applyMeleeHit(attacker: Entity, target: Entity, style: CombatStyle, time: number) {
+  const kbPower = attacker.attack!.knockback || 0;
+  const targetMass = target.physics?.mass || 1;
+  const finalKnockback = kbPower / targetMass;
+
+  // 计算击退方向 (从攻击者指向目标)
+  const dx = target.position.x - attacker.position.x;
+  const dz = target.position.z - attacker.position.z;
+  const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+  const nx = dx / dist;
+  const nz = dz / dist;
+
+  if (target.velocity && target.type !== 'player') {
+    target.velocity.x += nx * finalKnockback;
+    target.velocity.z += nz * finalKnockback;
+  }
+
+  if (target.health) {
+    const damage = attacker.attack!.power;
+    target.health.current -= damage;
+    target.health.lastHitTime = time;
+    
+    if (target.type === 'enemy') {
+      spawnDamageText(damage, target.position);
+    }
+
+    const hitPriority = target.type === 'player' ? SoundPriority.CRITICAL : SoundPriority.NORMAL;
+    const hitSound = style.sfx?.hit;
+    if (hitSound) {
+      AudioAssets.play(hitSound, { 
+        position: target.position, 
+        priority: hitPriority,
+        sourceType: target.type as any
+      });
+    }
+
+    if (target.health.current <= 0 && !target.dead) {
+      target.health.current = 0;
+      target.dead = true;
+      target.deathTime = time;
+      target.deathDir = { x: nx, y: 0, z: nz };
+      
+      if (target.type === 'enemy') {
+        spawnGold(target.position, 10); 
+      }
+
+      delete target.ai;
+      delete target.attack;
+      delete target.input;
+      if (target.velocity) {
+        target.velocity.x = 0;
+        target.velocity.z = 0;
+      }
+    }
+  }
 }
