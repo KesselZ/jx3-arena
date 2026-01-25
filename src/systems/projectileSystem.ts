@@ -231,7 +231,7 @@ function applyProjectileHit(projectile: Entity, target: Entity) {
 
       // 敌人死亡掉落金币
       if (target.type === 'enemy') {
-        // spawnGold(target.position, 10); // 消融实验：暂时关闭金币掉落
+        spawnGold(target.position, 10);
       }
     }
   }
