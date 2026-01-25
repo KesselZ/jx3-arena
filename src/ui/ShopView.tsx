@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { motion, AnimatePresence } from 'framer-motion'
+import { AudioAssets } from '../assets/audioAssets'
 
 export const ShopView: React.FC = () => {
   const showShop = useGameStore((state) => state.showShop)
   const closeShop = useGameStore((state) => state.closeShop)
   const gold = useGameStore((state) => state.gold)
   const wave = useGameStore((state) => state.wave)
+
+  // 监听商店显示状态，动态调整 BGM 音量
+  useEffect(() => {
+    if (showShop) {
+      AudioAssets.setBGMVolumeScale(0.2, 1000); // 进入商店，BGM 降至 20% (更安静)
+    } else {
+      AudioAssets.setBGMVolumeScale(1.0, 800);  // 离开商店，BGM 恢复
+    }
+  }, [showShop]);
 
   // 模拟商品数据
   const [items] = useState([

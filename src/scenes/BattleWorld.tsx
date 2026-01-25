@@ -338,7 +338,11 @@ export function BattleWorld() {
   const dofRef = useRef<any>(null)
 
   useFrame((state) => {
-    AudioAssets.init(state.camera);
+    // [优化] 仅在初始化时或相机变化时调用，避免每帧重复逻辑
+    if (!AudioAssets['listener']) {
+      AudioAssets.init(state.camera);
+    }
+    
     if (!dofRef.current) return
     const player = world.entities.find(e => e.id === 'player-main')
     if (!player) return
@@ -386,6 +390,9 @@ export function BattleWorld() {
         AudioAssets.preload(['COIN_PICKUP', 'SLASH', 'IMPACT', 'HIT_BODY'])
       ]);
       
+      // 启动 BGM
+      AudioAssets.playBGM('BGM_BATTLE');
+      
       resetSpawner()
       world.clear() 
       createPlayer(selectedCharacter, 0, 0)
@@ -395,9 +402,9 @@ export function BattleWorld() {
       const down = new THREE.Vector3(0, -1, 0)
       
       // 1. 确定禁区边界：扩大到正负 60
-      const EXCLUSION_ZONE = 60
-      const SAMPLE_MAX = 160 
-      const SPECTATOR_COUNT = 1 // 消融实验：暂时设置为 1 个观众 (原 3000)
+      const EXCLUSION_ZONE = GAME_CONFIG.ARENA.EXCLUSION_ZONE
+      const SAMPLE_MAX = GAME_CONFIG.ARENA.SAMPLE_MAX
+      const SPECTATOR_COUNT = GAME_CONFIG.ARENA.SPECTATOR_COUNT
       const SPECTATOR_POOL = ['bandit', 'archer', 'ally_chunyang', 'player_tiance', 'player_wanhua'] 
       
       scene.updateMatrixWorld(true)

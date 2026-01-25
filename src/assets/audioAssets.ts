@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Howl } from 'howler';
 
 /**
  * 声音资源定义
@@ -53,8 +54,8 @@ export const SOUND_ASSETS = {
     volume: 0.3, 
     limit: 2 
   },
-  BGM_MENU: { path: '/audio/bgm/天赋界面.mp3', is3D: false, volume: 0.4, loop: true },
-  BGM_BATTLE: { path: '/audio/bgm/如寄.mp3', is3D: false, volume: 0.5, loop: true },
+  BGM_MENU: { path: '/audio/bgm/天赋界面.mp3', is3D: false, volume: 0.25, loop: true },
+  BGM_BATTLE: { path: '/audio/bgm/奇怪电音.mp3', is3D: false, volume: 0.3, loop: true },
 } as const;
 
 export type SoundID = keyof typeof SOUND_ASSETS;
@@ -85,6 +86,11 @@ class AudioManager {
   private bufferCache = new Map<string, AudioBuffer>();
   private loadingPromises = new Map<string, Promise<AudioBuffer>>();
   
+  // BGM (Howler)
+  private bgmInstance: Howl | null = null;
+  private currentBgmId: SoundID | null = null;
+  private bgmVolumeScale = 1.0;
+
   // 调度器状态
   private soundCounts = new Map<SoundID, number>();
   private readonly GLOBAL_MAX_VOICES = 32;
@@ -109,11 +115,92 @@ class AudioManager {
       if (THREE.AudioContext.getContext().state === 'suspended') {
         THREE.AudioContext.getContext().resume();
       }
+      // Howler 也会自动尝试恢复
+      if (this.bgmInstance && this.bgmInstance.state() === 'loaded') {
+        this.bgmInstance.play();
+      }
       window.removeEventListener('click', resumeAudio);
     };
     window.addEventListener('click', resumeAudio);
     
     return this.listener;
+  }
+
+  /**
+   * 播放 BGM (使用 Howler)
+   * 支持平滑淡入淡出切换
+   * @param id 音频资源 ID
+   * @param fadeDuration 淡入淡出时长 (ms)
+   */
+  playBGM(id: SoundID, fadeDuration = 1500) {
+    // [优化] 状态守卫：如果正在播放相同的 BGM，且没有被停止，则忽略请求
+    if (this.currentBgmId === id && this.bgmInstance) {
+      if (this.bgmInstance.playing() || this.bgmInstance.state() === 'loading') {
+        return;
+      }
+    }
+
+    const config = SOUND_ASSETS[id];
+    // [兼容性] 支持单路径或多路径配置，BGM 通常取第一个
+    const path = 'path' in config ? config.path : (config as any).paths[0];
+    const targetVolume = (config.volume || 0.5) * this.bgmVolumeScale;
+
+    // [核心逻辑] 1. 处理旧 BGM 实例：淡出 -> 停止 -> 卸载内存
+    if (this.bgmInstance) {
+      const oldInstance = this.bgmInstance;
+      oldInstance.fade(oldInstance.volume(), 0, fadeDuration);
+      setTimeout(() => {
+        oldInstance.stop();
+        oldInstance.unload(); 
+      }, fadeDuration);
+    }
+
+    // [核心逻辑] 2. 记录当前 ID，防止异步过程中重复触发
+    this.currentBgmId = id;
+
+    // [核心逻辑] 3. 创建新 BGM (启用 html5 模式以支持大文件流式播放)
+    this.bgmInstance = new Howl({
+      src: [path],
+      loop: true,
+      html5: true, // 关键：大文件不预加载到 WebAudio 节点，直接流式播放
+      volume: 0,   // 从 0 开始淡入
+    });
+
+    this.bgmInstance.play();
+    this.bgmInstance.fade(0, targetVolume, fadeDuration);
+
+    console.log(`[AudioManager] 🎵 切换 BGM: ${id} (${path})`);
+  }
+
+  /**
+   * 动态调整 BGM 音量缩放 (例如进入商店时)
+   * @param multiplier 0 到 1 的倍数
+   * @param fadeDuration 淡入淡出时长
+   */
+  setBGMVolumeScale(multiplier: number, fadeDuration = 1000) {
+    this.bgmVolumeScale = multiplier;
+    if (!this.bgmInstance || !this.currentBgmId) return;
+    
+    const config = SOUND_ASSETS[this.currentBgmId];
+    const targetVolume = (config.volume || 0.5) * multiplier;
+    
+    // 使用 Howler 的平滑过渡
+    this.bgmInstance.fade(this.bgmInstance.volume(), targetVolume, fadeDuration);
+    console.log(`[AudioManager] BGM 音量缩放: ${multiplier * 100}%`);
+  }
+
+  /**
+   * 停止 BGM
+   */
+  stopBGM(fadeDuration = 1000) {
+    if (!this.bgmInstance) return;
+    const instance = this.bgmInstance;
+    instance.fade(instance.volume(), 0, fadeDuration);
+    setTimeout(() => {
+      instance.stop();
+      this.bgmInstance = null;
+      this.currentBgmId = null;
+    }, fadeDuration);
   }
 
   /**

@@ -1,8 +1,14 @@
+import { useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { AudioAssets } from '../assets/audioAssets'
 
 export const MainMenuView = () => {
   const setPhase = useGameStore((state) => state.setPhase)
+
+  useEffect(() => {
+    // [BGM] 进入主菜单播放菜单音乐
+    AudioAssets.playBGM('BGM_MENU');
+  }, []);
 
   const handleStart = () => {
     AudioAssets.play2D('CLICK_CLEAN');

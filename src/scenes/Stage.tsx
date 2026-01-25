@@ -152,7 +152,7 @@ export function Stage() {
         </mesh>
 
         {/* 【实例化优化：看台与基座】 - 使用 Box 实例化 */}
-        <Instances range={100} castShadow receiveShadow>
+        <Instances name="arena-stands" range={100} castShadow receiveShadow>
           <boxGeometry args={[1, 1, 1]} />
           <meshStandardMaterial roughness={1} />
           

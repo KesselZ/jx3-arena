@@ -42,8 +42,11 @@ export const GAME_CONFIG = {
     ALLY_IDLE_RADIUS: 5,       // 闲置跟随半径
   },
 
-  // 竞技场布局相关
+    // 竞技场布局相关
   ARENA: {
+    SPECTATOR_COUNT: 3000,     // 观众总数
+    EXCLUSION_ZONE: 60,        // 观众生成的中心禁区 (避开战斗区域)
+    SAMPLE_MAX: 160,           // 观众生成的最大采样半径
     STANDS: [
       { id: 'north', center: [0, 0, 110], size: [940, 20, 100] }, // 基于 bx=35, bz=35 计算: (bx*2+150)*2 = 440*2 = 880? 不对，原代码是 (bx*2+150)*2
       { id: 'south', center: [0, 0, -110], size: [940, 20, 100] },
