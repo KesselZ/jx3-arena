@@ -60,6 +60,9 @@ interface GameState {
   drawCalls: number
   triangles: number
   logicTime: number
+  renderTime: number // 新增：渲染耗时
+  gpuTime: number    // 新增：GPU 耗时
+  idleTime: number   // 新增：空闲/阻塞耗时
   memory: {
     geometries: number
     textures: number
@@ -79,15 +82,7 @@ interface GameState {
   // 观众席位坐标 (由视觉层 Stage 填充)
   arenaSeats: { x: number, y: number, z: number }[]
   setArenaSeats: (seats: { x: number, y: number, z: number }[]) => void
-  updateStats: (stats: { 
-    fps: number, 
-    frameTime: number, 
-    drawCalls: number, 
-    triangles: number, 
-    logicTime: number,
-    memory: { geometries: number, textures: number },
-    perfMetrics?: any
-  }) => void
+  updateStats: (stats: Partial<GameState>) => void
 }
 
 import { DIALOGUES } from '../data/dialogues'
@@ -113,6 +108,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   drawCalls: 0,
   triangles: 0,
   logicTime: 0,
+  renderTime: 0,
+  gpuTime: 0,
+  idleTime: 0,
   memory: { geometries: 0, textures: 0 },
   arenaSeats: [],
 

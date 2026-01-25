@@ -67,13 +67,6 @@ export function useBattleSystems(keys: any, currentWave: number) {
     const hashTime = performance.now() - t
     perfMetrics.current.hash = hashTime
 
-    // 性能 Debug 日志：每 60 帧打印一次统计数据
-    if (state.clock.elapsedTime % 2 < 0.016) { // 约每 2 秒打印一次
-      const stats = spatialHash.debugStats;
-      console.log(`[Performance] Physical Entities: ${physEntities.length} | Hash Update: ${hashTime.toFixed(2)}ms | Total World Entities: ${world.entities.length}`);
-      console.log(`[SpatialHash] Inserts: ${stats.insertCount} | Queries: ${stats.queryCount} | Fallbacks: ${stats.fallbackCount} | Candidates Scanned: ${stats.candidateCount}`);
-    }
-
     // 4. AI System
     t = performance.now()
     aiSystem(delta)
@@ -98,7 +91,7 @@ export function useBattleSystems(keys: any, currentWave: number) {
 
     // 8. Collision System
     t = performance.now()
-    // collisionSystem() // 消融实验：暂时关闭物理碰撞挤压
+    collisionSystem() 
     perfMetrics.current.collision = performance.now() - t
 
     // 9. VFX Lifecycle

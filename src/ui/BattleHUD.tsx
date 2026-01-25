@@ -18,6 +18,9 @@ export function PerformanceMonitor() {
   const smoothed = useRef<any>(null)
   const { gl } = useThree()
   
+  // 用于计算 RenderTime
+  const renderStartTime = useRef(0)
+
   // 关键：禁用渲染器的自动重置，由我们手动控制采集时序
   useEffect(() => {
     const originalAutoReset = gl.info.autoReset
@@ -25,31 +28,53 @@ export function PerformanceMonitor() {
     return () => { gl.info.autoReset = originalAutoReset }
   }, [gl])
 
+  // 在渲染开始前记录时间
+  useFrame((state) => {
+    renderStartTime.current = performance.now()
+  }, -1) // 优先级最高，在所有逻辑之前
+
+  // 在渲染结束后记录时间并更新统计
   useFrame((state, delta) => {
+    const now = performance.now()
+    const renderTime = now - renderStartTime.current
+    
     frameCount.current++
     const metrics = (state as any).perfMetrics || {}
+    const logicTime = metrics.total || 0
+    const frameTime = delta * 1000
+    const idleTime = Math.max(0, frameTime - logicTime - renderTime)
     
-    // 1. 初始化或更新 EMA 平滑值 (仅针对逻辑耗时)
+    // 1. 初始化或更新 EMA 平滑值
     if (!smoothed.current) {
-      smoothed.current = { frameTime: delta * 1000, logicTime: metrics.total || 0, perfMetrics: { ...metrics } }
+      smoothed.current = { 
+        frameTime, 
+        logicTime, 
+        renderTime,
+        idleTime,
+        perfMetrics: { ...metrics } 
+      }
     } else {
-      smoothed.current.frameTime = smooth(smoothed.current.frameTime, delta * 1000)
-      smoothed.current.logicTime = smooth(smoothed.current.logicTime, metrics.total || 0)
+      smoothed.current.frameTime = smooth(smoothed.current.frameTime, frameTime)
+      smoothed.current.logicTime = smooth(smoothed.current.logicTime, logicTime)
+      smoothed.current.renderTime = smooth(smoothed.current.renderTime, renderTime)
+      smoothed.current.idleTime = smooth(smoothed.current.idleTime, idleTime)
+      
       Object.keys(metrics).forEach(key => {
         smoothed.current.perfMetrics[key] = smooth(smoothed.current.perfMetrics[key], metrics[key])
       })
     }
 
     // 2. 每 0.5 秒计算一次真实平均 FPS 并更新 UI
-    const now = performance.now()
     const elapsed = now - lastUpdateTime.current
     if (elapsed >= 500) {
       const actualFps = Math.round((frameCount.current * 1000) / elapsed)
       
       updateStats({
-        fps: actualFps, // 使用真实的区间平均帧率，上限会被 VSync 锁死
+        fps: actualFps,
         frameTime: smoothed.current.frameTime,
         logicTime: smoothed.current.logicTime,
+        renderTime: smoothed.current.renderTime,
+        idleTime: smoothed.current.idleTime,
         perfMetrics: { ...smoothed.current.perfMetrics },
         drawCalls: gl.info.render.calls,
         triangles: gl.info.render.triangles,
@@ -62,7 +87,7 @@ export function PerformanceMonitor() {
     
     // 3. 重要：手动重置统计，为【本帧】接下来的绘制做准备
     gl.info.reset()
-  })
+  }, 1000) // 优先级最低，在所有逻辑和渲染提交之后
 
   return null
 }
@@ -76,9 +101,10 @@ function StatsPanel() {
   const drawCalls = useGameStore(state => state.drawCalls)
   const triangles = useGameStore(state => state.triangles)
   const logicTime = useGameStore(state => state.logicTime)
+  const renderTime = useGameStore(state => state.renderTime)
+  const idleTime = useGameStore(state => state.idleTime)
   const memory = useGameStore(state => state.memory)
   const perfMetrics = useGameStore(state => state.perfMetrics)
-  const selectedCharacter = useGameStore(state => state.selectedCharacter)
   const entities = useEntities(world)
 
   if (!GAME_CONFIG.DEBUG) return null
@@ -105,24 +131,34 @@ function StatsPanel() {
             <span>Frame</span>
             <span>{frameTime?.toFixed(2) || 0}ms</span>
           </div>
-          <div className="flex justify-between gap-4 font-bold border-b border-jx3-gold/10 pb-0.5 mb-1">
-            <span>Logic Total</span>
+          
+          <div className="my-1 border-t border-jx3-gold/10" />
+
+          <div className="flex justify-between gap-4 font-bold">
+            <span>Logic</span>
             <span className={logicTime > 10 ? 'text-jx3-vermilion' : 'text-jx3-gold'}>{logicTime?.toFixed(2) || 0}ms</span>
           </div>
           
           {perfMetrics && (
-            <div className="space-y-0 text-[8px] opacity-80">
-              <div className="flex justify-between"><span>├ Input</span><span className={getMetricColor(perfMetrics.input)}>{perfMetrics.input.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>├ Hash</span><span className={getMetricColor(perfMetrics.hash)}>{perfMetrics.hash.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>├ AI</span><span className={getMetricColor(perfMetrics.ai)}>{perfMetrics.ai.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>├ Combat</span><span className={getMetricColor(perfMetrics.combat)}>{perfMetrics.combat.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>├ Projectile</span><span className={getMetricColor(perfMetrics.projectile)}>{perfMetrics.projectile.toFixed(2)}ms</span></div>
-              <div className="flex justify-between text-[7px] opacity-60"><span>│  ├ Move</span><span>{perfMetrics.projMove?.toFixed(2)}ms</span></div>
-              <div className="flex justify-between text-[7px] opacity-60"><span>│  └ Hit</span><span>{perfMetrics.projHit?.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>├ Movement</span><span className={getMetricColor(perfMetrics.movement)}>{perfMetrics.movement.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>└ Collision</span><span className={getMetricColor(perfMetrics.collision)}>{perfMetrics.collision.toFixed(2)}ms</span></div>
+            <div className="space-y-0 text-[8px] opacity-80 pl-2 border-l border-jx3-gold/20">
+              <div className="flex justify-between"><span>Input</span><span className={getMetricColor(perfMetrics.input)}>{perfMetrics.input.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>Hash</span><span className={getMetricColor(perfMetrics.hash)}>{perfMetrics.hash.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>AI</span><span className={getMetricColor(perfMetrics.ai)}>{perfMetrics.ai.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>Combat</span><span className={getMetricColor(perfMetrics.combat)}>{perfMetrics.combat.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>Movement</span><span className={getMetricColor(perfMetrics.movement)}>{perfMetrics.movement.toFixed(2)}ms</span></div>
+              <div className="flex justify-between"><span>Collision</span><span className={getMetricColor(perfMetrics.collision)}>{perfMetrics.collision.toFixed(2)}ms</span></div>
             </div>
           )}
+
+          <div className="flex justify-between gap-4 font-bold mt-1">
+            <span>Render</span>
+            <span className={renderTime > 5 ? 'text-jx3-vermilion' : 'text-jx3-gold'}>{renderTime?.toFixed(2) || 0}ms</span>
+          </div>
+          
+          <div className="flex justify-between gap-4 opacity-60 text-[8px]">
+            <span>Idle/Jank</span>
+            <span>{idleTime?.toFixed(2) || 0}ms</span>
+          </div>
 
           <div className="my-1 border-t border-jx3-gold/10" />
           
