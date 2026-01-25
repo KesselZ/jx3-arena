@@ -1,8 +1,8 @@
-import { Sky, ContactShadows, Environment, Float, Image } from '@react-three/drei'
+import { Sky, Environment, Instances, Instance } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import { GAME_CONFIG } from '../data/config'
 import * as THREE from 'three'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo } from 'react'
 
 export function Stage() {
   const themeKey = useGameStore((state) => state.theme)
@@ -113,10 +113,7 @@ export function Stage() {
       {/* 极低的环境光，强制拉开明暗差距 */}
       <ambientLight intensity={0.2} />
       
-      {/* 强力主光源（太阳光）：
-          - 强度大幅提升至 2.5
-          - 位置进一步降低，产生更长、更明显的投影
-      */}
+      {/* 强力主光源（太阳光） */}
       <directionalLight 
         position={[25, 35, 25]} 
         intensity={2.5} 
@@ -132,7 +129,7 @@ export function Stage() {
       <fog attach="fog" args={[theme.fog.color, theme.fog.near, theme.fog.far]} />
 
       <group>
-        {/* 【主擂台实体】 - 增加厚度并向下延伸，确保接触到 -2 海拔的地面 */}
+        {/* 【主擂台实体】 */}
         <mesh 
           position={[0, 0, 0]} 
           rotation={[-Math.PI / 2, 0, 0]}
@@ -148,114 +145,132 @@ export function Stage() {
           />
         </mesh>
 
-        {/* 擂台侧边实体 - 稍微下移 0.01，防止顶面与海拔 0 的擂台面发生 Z-Fighting */}
+        {/* 擂台侧边实体 */}
         <mesh position={[0, -1.01, 0]} receiveShadow castShadow>
           <boxGeometry args={[bx * 2, 2, bz * 2]} />
           <meshStandardMaterial color="#4a3a2a" roughness={1} />
         </mesh>
 
-        {/* 【竞技场看台】 - 宏大的环绕式阶梯结构 (基于统一配置) */}
-        <group name="arena-stands" position={[0, GAME_CONFIG.ARENA.BASE_Y, 0]}>
+        {/* 【实例化优化：看台与基座】 - 使用 Box 实例化 */}
+        <Instances range={100} castShadow receiveShadow>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial roughness={1} />
+          
+          {/* 1. 竞技场看台 */}
           {GAME_CONFIG.ARENA.STANDS.map((stand) => (
             <group key={stand.id} position={stand.center as [number, number, number]}>
               {Array.from({ length: GAME_CONFIG.ARENA.LEVEL_COUNT }).map((_, level) => {
                 const shrink = level * 8
                 const currentWidth = stand.size[0] - (stand.center[0] !== 0 ? shrink : 0)
                 const currentDepth = stand.size[2] - (stand.center[2] !== 0 ? shrink : 0)
-                
                 return (
-                  <group key={level} position={[0, level * GAME_CONFIG.ARENA.LEVEL_HEIGHT, 0]}>
-                    <mesh receiveShadow castShadow>
-                      <boxGeometry args={[currentWidth, GAME_CONFIG.ARENA.LEVEL_HEIGHT, currentDepth]} />
-                      <meshStandardMaterial color={level % 2 === 0 ? "#2a1a0a" : "#1a0a00"} roughness={1} />
-                    </mesh>
-                  </group>
+                  <Instance 
+                    key={level}
+                    position={[0, (level * GAME_CONFIG.ARENA.LEVEL_HEIGHT) + GAME_CONFIG.ARENA.BASE_Y, 0]}
+                    scale={[currentWidth, GAME_CONFIG.ARENA.LEVEL_HEIGHT, currentDepth]}
+                    color={level % 2 === 0 ? "#2a1a0a" : "#1a0a00"}
+                  />
                 )
               })}
             </group>
           ))}
+
+          {/* 2. 火炬塔基座 */}
+          {[
+            [bx + 2, bz + 2], [bx + 2, -bz - 2], [-bx - 2, bz + 2], [-bx - 2, -bz - 2]
+          ].map(([x, z], i) => (
+            <Instance 
+              key={`tower-base-${i}`}
+              position={[x, -1.5, z]}
+              scale={[2, 1, 2]}
+              color="#2a1a0a"
+            />
+          ))}
+        </Instances>
+
+        {/* 【实例化优化：圆柱体组件】 - 塔身、托盘、围绳、立柱 */}
+        <Instances range={200} castShadow>
+          <cylinderGeometry args={[1, 1, 1, 8]} />
+          <meshStandardMaterial roughness={0.5} />
+
+          {/* 1. 火炬塔身 */}
+          {[
+            [bx + 2, bz + 2], [bx + 2, -bz - 2], [-bx - 2, bz + 2], [-bx - 2, -bz - 2]
+          ].map(([x, z], i) => (
+            <group key={`tower-cyls-${i}`} position={[x, -2, z]}>
+              <Instance 
+                position={[0, 5, 0]} 
+                scale={[0.8, 10, 0.8]} 
+                color="#1a1a1a"
+              />
+              <Instance 
+                position={[0, 10, 0]} 
+                scale={[1.5, 0.5, 1.5]}
+                color="#333"
+              />
+            </group>
+          ))}
+
+          {/* 2. 围绳 */}
+          {[
+            { pos: [0, 0, bz], rot: [0, 0, 0], len: bx * 2 },
+            { pos: [0, 0, -bz], rot: [0, 0, 0], len: bx * 2 },
+            { pos: [bx, 0, 0], rot: [0, Math.PI / 2, 0], len: bz * 2 },
+            { pos: [-bx, 0, 0], rot: [0, Math.PI / 2, 0], len: bz * 2 },
+          ].map((side, i) => (
+            <group key={`side-${i}`} position={side.pos as [number, number, number]} rotation={side.rot as [number, number, number]}>
+              {[0.4, 0.8, 1.2].map((h) => (
+                <Instance 
+                  key={h} 
+                  position={[0, h, 0]} 
+                  rotation={[0, 0, Math.PI / 2]}
+                  scale={[0.05, side.len, 0.05]}
+                  color="#e34234"
+                />
+              ))}
+            </group>
+          ))}
+
+          {/* 3. 立柱 */}
+          {[
+            [bx, bz], [bx, -bz], [-bx, bz], [-bx, -bz]
+          ].map(([x, z], i) => (
+            <Instance 
+              key={`post-${i}`} 
+              position={[x, 0.75, z]} 
+              scale={[0.2, 1.5, 0.2]}
+              color="#333"
+            />
+          ))}
+        </Instances>
+
+        {/* 【火炬顶端：球体与灯光】 */}
+        <group>
+          {[
+            [bx + 2, bz + 2], [bx + 2, -bz - 2], [-bx - 2, bz + 2], [-bx - 2, -bz - 2]
+          ].map(([x, z], i) => (
+            <group key={`torch-light-${i}`} position={[x, 9, z]}>
+              <pointLight intensity={1500} color="#ff0000" distance={300} decay={2} />
+              <mesh>
+                <sphereGeometry args={[1.2, 16, 16]} />
+                <meshStandardMaterial color="#ffffff" emissive="#ff0000" emissiveIntensity={50} />
+              </mesh>
+            </group>
+          ))}
         </group>
 
-        {/* 【四个角落的巨型火炬塔】 - 底部对齐海拔 -2 */}
-        {[
-          [bx + 2, bz + 2], [bx + 2, -bz - 2], [-bx - 2, bz + 2], [-bx - 2, -bz - 2]
-        ].map(([x, z], i) => (
-          <group key={i} position={[x, -2, z]}>
-            {/* 塔基座 */}
-            <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
-              <boxGeometry args={[2, 1, 2]} />
-              <meshStandardMaterial color="#2a1a0a" roughness={1} />
-            </mesh>
-            {/* 塔身 - 进一步加高 */}
-            <mesh position={[0, 5, 0]} castShadow>
-              <cylinderGeometry args={[0.6, 1.0, 10, 8]} />
-              <meshStandardMaterial color="#1a1a1a" metalness={0.8} roughness={0.2} />
-            </mesh>
-            {/* 顶部灯珠托盘 */}
-            <mesh position={[0, 10, 0]} castShadow>
-              <cylinderGeometry args={[1.5, 0.6, 0.5, 8]} />
-              <meshStandardMaterial color="#333" />
-            </mesh>
-            {/* 增强光源：红色光源测试。注意：关闭 castShadow 以节省数千个 DrawCall */}
-            <pointLight position={[0, 11, 0]} intensity={1500} color="#ff0000" distance={300} decay={2} />
-            <mesh position={[0, 11, 0]}>
-              <sphereGeometry args={[1.2, 32, 32]} />
-              <meshStandardMaterial color="#ffffff" emissive="#ff0000" emissiveIntensity={50} />
-            </mesh>
-          </group>
-        ))}
-
-        {/* 外部视觉地面：海拔 -2，角色永远去不到的背景 */}
+        {/* 外部视觉地面 */}
         <mesh name="ground-plane" rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
           <planeGeometry args={[2000, 2000]} />
           <meshStandardMaterial 
-            color="#2a2520" // 换成深褐色，更有泥土/岩石感，而非死板的灰黑
+            color="#2a2520" 
             map={bgNoiseTexture}
             roughness={1} 
             metalness={0}
           />
         </mesh>
-
-        {/* 【拳击场围绳】 - 围起 70x70 的区域 */}
-        <group>
-          {[
-            { pos: [0, 0, bz], rot: [0, 0, 0] }, // 北
-            { pos: [0, 0, -bz], rot: [0, 0, 0] }, // 南
-            { pos: [bx, 0, 0], rot: [0, Math.PI / 2, 0] }, // 东
-            { pos: [-bx, 0, 0], rot: [0, Math.PI / 2, 0] }, // 西
-          ].map((side, i) => (
-            <group key={i} position={side.pos as [number, number, number]} rotation={side.rot as [number, number, number]}>
-              {/* 三根围绳：高度分别为 0.4, 0.8, 1.2 */}
-              {[0.4, 0.8, 1.2].map((h) => (
-                <mesh key={h} position={[0, h, 0]} castShadow rotation={[0, 0, Math.PI / 2]}>
-                  <cylinderGeometry args={[0.05, 0.05, i < 2 ? bx * 2 : bz * 2, 8]} />
-                  <meshStandardMaterial color="#e34234" roughness={0.5} /> {/* 红色围绳 */}
-                </mesh>
-              ))}
-            </group>
-          ))}
-          {/* 四个角落的加粗立柱 */}
-          {[
-            [bx, bz], [bx, -bz], [-bx, bz], [-bx, -bz]
-          ].map(([x, z], i) => (
-            <mesh key={i} position={[x, 0.75, z]} castShadow>
-              <cylinderGeometry args={[0.2, 0.2, 1.5, 16]} />
-              <meshStandardMaterial color="#333" roughness={0.3} metalness={0.8} />
-            </mesh>
-          ))}
-        </group>
       </group>
 
-      {/* 7. 移除软阴影 (ContactShadows)，改用锐利的实时阴影 */}
-      {/* <ContactShadows 
-        opacity={0.8} 
-        scale={80} 
-        blur={1.2} 
-        far={2} 
-        resolution={1024} 
-        color="#000000" 
-      /> */}
-      
       <Environment preset="sunset" />
     </>
   )

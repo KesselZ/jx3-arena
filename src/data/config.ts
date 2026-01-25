@@ -13,8 +13,8 @@ export const GAME_CONFIG = {
       x: 35,
       z: 35
     },
-    SPAWN_INTERVAL: 0.005,      // 压力测试：生成速度提高 100 倍 (原 0.5)
-    INITIAL_ENEMIES: 100,       // 压力测试：开局生成 100 个 (原 10)
+    SPAWN_INTERVAL: 9999,      // 消融实验：生成间隔极大，几乎不生成
+    INITIAL_ENEMIES: 0,        // 消融实验：开局不生成敌人
     TARGET_STICKY_MULT: 1.5,   // 索敌粘性倍率 (射程的倍数)
     DEATH_DURATION: 0.6,       // 死亡动画总长
     DEATH_JUMP_HEIGHT: 1.5,    // 死亡弹跳高度

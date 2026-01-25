@@ -38,8 +38,8 @@ export function findNearestHostile(attacker: Entity): Entity | null {
     ? (SH_CATEGORY.PLAYER | SH_CATEGORY.ALLY) 
     : SH_CATEGORY.ENEMY;
   
-  // 2. 空间哈希查询 (使用掩码过滤)
-  const candidates = spatialHash.query(x, z, 100, targetMask, QUERY_RESULT_CACHE)
+  // 2. 空间哈希查询 (使用掩码过滤，降低半径至 15m 并允许回退)
+  const candidates = spatialHash.query(x, z, 15, targetMask, QUERY_RESULT_CACHE, true)
   
   let nearest: Entity | null = null
   let minDistSq = Infinity

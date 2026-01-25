@@ -46,12 +46,15 @@ export class SpatialHash {
 
   // 核心重构：将单桶改为多桶存储 [cellIdx][categoryIdx]
   private l1Buckets: Entity[][][]
+  // 全局分类桶：用于大范围查询时的回退逻辑 (性能优化)
+  private globalBuckets: Entity[][]
 
   // 性能监控计数器
   public debugStats = {
     insertCount: 0,
     queryCount: 0,
-    candidateCount: 0
+    candidateCount: 0,
+    fallbackCount: 0 // 新增：回退查询计数
   }
 
   constructor() {
@@ -63,6 +66,8 @@ export class SpatialHash {
     this.l1Buckets = Array.from({ length: totalCells }, () => 
       Array.from({ length: NUM_CATEGORIES }, () => [])
     );
+    // 初始化全局分类桶
+    this.globalBuckets = Array.from({ length: NUM_CATEGORIES }, () => []);
   }
 
   clear() {
@@ -71,13 +76,18 @@ export class SpatialHash {
     this.debugStats.insertCount = 0
     this.debugStats.queryCount = 0
     this.debugStats.candidateCount = 0
+    this.debugStats.fallbackCount = 0
     
-    // 清空所有桶
+    // 清空所有局部桶
     for (let i = 0; i < this.l1Buckets.length; i++) {
       const cell = this.l1Buckets[i];
       for (let j = 0; j < NUM_CATEGORIES; j++) {
         cell[j].length = 0;
       }
+    }
+    // 清空所有全局桶
+    for (let j = 0; j < NUM_CATEGORIES; j++) {
+      this.globalBuckets[j].length = 0;
     }
   }
 
@@ -124,14 +134,18 @@ export class SpatialHash {
     const catIdx = CAT_TO_IDX[category];
     this.l1Buckets[l1Idx][catIdx].push(entity)
     
+    // 5. 全局入桶 (用于回退逻辑)
+    this.globalBuckets[catIdx].push(entity);
+    
     this.debugStats.insertCount++
   }
 
   /**
    * 查询指定范围内的实体
    * @param mask 类别掩码，支持或运算，如 SH_CATEGORY.ENEMY | SH_CATEGORY.ALLY
+   * @param allowFallback 是否允许在未找到局部目标时回退到全局扫描 (性能优化)
    */
-  query(x: number, z: number, range: number, mask: number = 0xFFFFFFFF, out?: Entity[]): Entity[] {
+  query(x: number, z: number, range: number, mask: number = 0xFFFFFFFF, out?: Entity[], allowFallback: boolean = false): Entity[] {
     this.debugStats.queryCount++
     const results = out || []
     if (out) results.length = 0
@@ -181,6 +195,21 @@ export class SpatialHash {
                 }
               }
             }
+          }
+        }
+      }
+    }
+
+    // --- 2. 外部驱动的回退逻辑 ---
+    // 只有当格子扫描为空，且外部明确要求 allowFallback 时，才执行全局扫描
+    if (results.length === 0 && allowFallback) {
+      this.debugStats.fallbackCount++;
+      for (let catIdx = 0; catIdx < NUM_CATEGORIES; catIdx++) {
+        if ((1 << catIdx) & mask) {
+          const bucket = this.globalBuckets[catIdx];
+          for (let k = 0; k < bucket.length; k++) {
+            this.debugStats.candidateCount++;
+            results.push(bucket[k]);
           }
         }
       }
