@@ -8,31 +8,26 @@ import { useRef, useEffect } from 'react'
 /**
  * 3D 性能数据采集器 (Canvas 内部组件)
  */
-const TIME_CONSTANT = 0.8; // 平滑时间常数（秒），数值越大越平滑，建议 0.5 - 1.2
+const TIME_CONSTANT = 0.8; // 平滑时间常数
 
 export function PerformanceMonitor() {
-  const updateStats = useGameStore((state) => state.updateStats)
   const lastUpdateTime = useRef(performance.now())
   const frameCount = useRef(0)
   const smoothed = useRef<any>(null)
   const { gl } = useThree()
   
-  // 用于计算 RenderTime
   const renderStartTime = useRef(0)
 
-  // 关键：禁用渲染器的自动重置，由我们手动控制采集时序
   useEffect(() => {
     const originalAutoReset = gl.info.autoReset
     gl.info.autoReset = false
     return () => { gl.info.autoReset = originalAutoReset }
   }, [gl])
 
-  // 在渲染开始前记录时间
   useFrame((state) => {
     renderStartTime.current = performance.now()
-  }, -1) // 优先级最高，在所有逻辑之前
+  }, -1)
 
-  // 在渲染结束后记录时间并更新统计
   useFrame((state, delta) => {
     const now = performance.now()
     const renderTime = now - renderStartTime.current
@@ -43,12 +38,8 @@ export function PerformanceMonitor() {
     const frameTime = delta * 1000
     const idleTime = Math.max(0, frameTime - logicTime - renderTime)
     
-    // --- 核心改进：基于时间的平滑系数 (Frame-rate Independent Smoothing) ---
-    // alpha = 1 - e^(-dt / tau)
-    // 这样无论 FPS 是 60 还是 240，平滑感在时间维度上是恒定的
     const alpha = 1 - Math.exp(-delta / TIME_CONSTANT);
     
-    // 1. 初始化或更新平滑值
     if (!smoothed.current) {
       smoothed.current = { 
         frameTime, 
@@ -70,13 +61,12 @@ export function PerformanceMonitor() {
       })
     }
 
-    // 2. 每 0.5 秒更新一次 UI
-    const elapsed = now - lastUpdateTime.current
-    if (elapsed >= 500) {
-      const actualFps = Math.round((frameCount.current * 1000) / elapsed)
+    const timeSinceLastUpdate = now - lastUpdateTime.current
+    if (timeSinceLastUpdate >= 500) {
+      const fpsValue = Math.round((frameCount.current * 1000) / timeSinceLastUpdate)
       
-      updateStats({
-        fps: actualFps,
+      const perfData = {
+        fps: fpsValue,
         frameTime: smoothed.current.frameTime,
         logicTime: smoothed.current.logicTime,
         renderTime: smoothed.current.renderTime,
@@ -85,111 +75,117 @@ export function PerformanceMonitor() {
         drawCalls: gl.info.render.calls,
         triangles: gl.info.render.triangles,
         memory: { geometries: gl.info.memory.geometries, textures: gl.info.memory.textures }
-      })
+      };
+      
+      // 触发一个自定义事件，通知外部的 StatsPanel 更新
+      window.dispatchEvent(new CustomEvent('perf-update', { detail: perfData }));
       
       lastUpdateTime.current = now
       frameCount.current = 0
     }
     
-    // 3. 重要：手动重置统计
     gl.info.reset()
-  }, 1000) // 优先级最低，在所有逻辑和渲染提交之后
+  }, 1000)
 
   return null
 }
 
 /**
- * 性能监测面板
+ * 性能监测面板 (Canvas 外部：监听自定义事件更新 DOM)
  */
 function StatsPanel() {
-  const fps = useGameStore(state => state.fps)
-  const frameTime = useGameStore(state => state.frameTime)
-  const drawCalls = useGameStore(state => state.drawCalls)
-  const triangles = useGameStore(state => state.triangles)
-  const logicTime = useGameStore(state => state.logicTime)
-  const renderTime = useGameStore(state => state.renderTime)
-  const idleTime = useGameStore(state => state.idleTime)
-  const memory = useGameStore(state => state.memory)
-  const perfMetrics = useGameStore(state => state.perfMetrics)
-  const entities = useEntities(world)
+  const containerRef = useRef<HTMLDivElement>(null)
+  
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (!containerRef.current || !GAME_CONFIG.DEBUG) return
+      const perf = e.detail
+      
+      const getMetricColor = (val: number) => {
+        if (val > 2) return '#ff4d4f'
+        if (val > 1) return '#fbbf24'
+        return '#d4af37'
+      }
+
+      const metrics = perf.perfMetrics || {}
+      const entitiesCount = world.entities.length
+
+      containerRef.current.innerHTML = `
+        <div class="pixel-panel !p-3 bg-jx3-ink/80 border-jx3-gold !text-[9px] text-jx3-gold font-mono leading-tight shadow-2xl min-w-[180px]" style="border: 2px solid #d4af37; background: rgba(26, 26, 26, 0.8); padding: 12px; color: #d4af37; font-family: monospace;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px solid rgba(212, 175, 55, 0.2); padding-bottom: 4px;">
+            <span style="opacity: 0.7; font-weight: bold;">PERFORMANCE PRO (DOM)</span>
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span>FPS</span>
+              <span style="color: ${perf.fps < 30 ? '#ff4d4f' : '#d4af37'}">${perf.fps}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Frame</span>
+              <span>${perf.frameTime.toFixed(2)}ms</span>
+            </div>
+            
+            <div style="margin: 4px 0; border-top: 1px solid rgba(212, 175, 55, 0.1);"></div>
+
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+              <span>Logic</span>
+              <span style="color: ${perf.logicTime > 10 ? '#ff4d4f' : '#d4af37'}">${perf.logicTime.toFixed(2)}ms</span>
+            </div>
+            
+            <div style="padding-left: 8px; border-left: 1px solid rgba(212, 175, 55, 0.2); font-size: 8px; opacity: 0.8;">
+              <div style="display: flex; justify-content: space-between;"><span>Input</span><span style="color: ${getMetricColor(metrics.input)}">${(metrics.input || 0).toFixed(2)}ms</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Hash</span><span style="color: ${getMetricColor(metrics.hash)}">${(metrics.hash || 0).toFixed(2)}ms</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>AI</span><span style="color: ${getMetricColor(metrics.ai)}">${(metrics.ai || 0).toFixed(2)}ms</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Combat</span><span style="color: ${getMetricColor(metrics.combat)}">${(metrics.combat || 0).toFixed(2)}ms</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Movement</span><span style="color: ${getMetricColor(metrics.movement)}">${(metrics.movement || 0).toFixed(2)}ms</span></div>
+              <div style="display: flex; justify-content: space-between;"><span>Collision</span><span style="color: ${getMetricColor(metrics.collision)}">${(metrics.collision || 0).toFixed(2)}ms</span></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 4px;">
+              <span>Render</span>
+              <span style="color: ${perf.renderTime > 5 ? '#ff4d4f' : '#d4af37'}">${perf.renderTime.toFixed(2)}ms</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; opacity: 0.6; font-size: 8px;">
+              <span>Idle/Jank</span>
+              <span>${perf.idleTime.toFixed(2)}ms</span>
+            </div>
+
+            <div style="margin: 4px 0; border-top: 1px solid rgba(212, 175, 55, 0.1);"></div>
+            
+            <div style="display: flex; justify-content: space-between;">
+              <span>DrawCalls</span>
+              <span style="color: white;">${perf.drawCalls}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Triangles</span>
+              <span style="color: white;">${(perf.triangles / 1000).toFixed(1)}k</span>
+            </div>
+            
+            <div style="margin: 4px 0; border-top: 1px solid rgba(212, 175, 55, 0.1);"></div>
+
+            <div style="display: flex; justify-content: space-between; opacity: 0.8;">
+              <span>Geo/Tex</span>
+              <span>${perf.memory.geometries}/${perf.memory.textures}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Entities</span>
+              <span style="color: #d4af37; font-weight: bold;">${entitiesCount}</span>
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    window.addEventListener('perf-update', handleUpdate)
+    return () => window.removeEventListener('perf-update', handleUpdate)
+  }, [])
 
   if (!GAME_CONFIG.DEBUG) return null
 
-  const getMetricColor = (val: number) => {
-    if (val > 2) return 'text-jx3-vermilion'
-    if (val > 1) return 'text-orange-400'
-    return 'text-jx3-gold'
-  }
-
   return (
-    <div className="absolute bottom-4 right-4 z-50 pointer-events-none">
-      <div className="pixel-panel !p-3 bg-jx3-ink/80 border-jx3-gold !text-[9px] text-jx3-gold font-mono leading-tight shadow-2xl min-w-[180px]">
-        <div className="flex justify-between gap-4 mb-1 border-b border-jx3-gold/20 pb-1">
-          <span className="opacity-70 font-bold">PERFORMANCE PRO</span>
-        </div>
-        
-        <div className="space-y-0.5">
-          <div className="flex justify-between gap-4">
-            <span>FPS</span>
-            <span className={fps < 30 ? 'text-jx3-vermilion' : 'text-jx3-gold'}>{fps}</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span>Frame</span>
-            <span>{frameTime?.toFixed(2) || 0}ms</span>
-          </div>
-          
-          <div className="my-1 border-t border-jx3-gold/10" />
-
-          <div className="flex justify-between gap-4 font-bold">
-            <span>Logic</span>
-            <span className={logicTime > 10 ? 'text-jx3-vermilion' : 'text-jx3-gold'}>{logicTime?.toFixed(2) || 0}ms</span>
-          </div>
-          
-          {perfMetrics && (
-            <div className="space-y-0 text-[8px] opacity-80 pl-2 border-l border-jx3-gold/20">
-              <div className="flex justify-between"><span>Input</span><span className={getMetricColor(perfMetrics.input)}>{perfMetrics.input.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>Hash</span><span className={getMetricColor(perfMetrics.hash)}>{perfMetrics.hash.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>AI</span><span className={getMetricColor(perfMetrics.ai)}>{perfMetrics.ai.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>Combat</span><span className={getMetricColor(perfMetrics.combat)}>{perfMetrics.combat.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>Movement</span><span className={getMetricColor(perfMetrics.movement)}>{perfMetrics.movement.toFixed(2)}ms</span></div>
-              <div className="flex justify-between"><span>Collision</span><span className={getMetricColor(perfMetrics.collision)}>{perfMetrics.collision.toFixed(2)}ms</span></div>
-            </div>
-          )}
-
-          <div className="flex justify-between gap-4 font-bold mt-1">
-            <span>Render</span>
-            <span className={renderTime > 5 ? 'text-jx3-vermilion' : 'text-jx3-gold'}>{renderTime?.toFixed(2) || 0}ms</span>
-          </div>
-          
-          <div className="flex justify-between gap-4 opacity-60 text-[8px]">
-            <span>Idle/Jank</span>
-            <span>{idleTime?.toFixed(2) || 0}ms</span>
-          </div>
-
-          <div className="my-1 border-t border-jx3-gold/10" />
-          
-          <div className="flex justify-between gap-4">
-            <span>DrawCalls</span>
-            <span className="text-white">{drawCalls}</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span>Triangles</span>
-            <span className="text-white">{(triangles / 1000).toFixed(1)}k</span>
-          </div>
-          
-          <div className="my-1 border-t border-jx3-gold/10" />
-
-          <div className="flex justify-between gap-4 opacity-80">
-            <span>Geo/Tex</span>
-            <span>{memory.geometries}/{memory.textures}</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span>Entities</span>
-            <span className="text-jx3-gold font-bold">{world.entities.length}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div ref={containerRef} className="absolute bottom-4 right-4 z-50 pointer-events-none" />
   )
 }
 

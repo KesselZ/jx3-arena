@@ -7,7 +7,7 @@ import { movementSystem } from '../systems/movementSystem'
 import { combatSystem } from '../systems/combatSystem'
 import { projectileSystem } from '../systems/projectileSystem'
 import { collisionSystem } from '../systems/collisionSystem'
-import { world, queries } from '../engine/ecs'
+import { world, queries, entityRecycleSystem } from '../engine/ecs'
 import { useGameStore } from '../store/useGameStore'
 import { spatialHash } from '../engine/spatialHash'
 
@@ -30,6 +30,7 @@ export function useBattleSystems(keys: any, currentWave: number) {
     movement: 0,
     collision: 0,
     vfx: 0,
+    recycle: 0, // 新增：回收系统耗时
     total: 0
   })
 
@@ -94,13 +95,20 @@ export function useBattleSystems(keys: any, currentWave: number) {
     collisionSystem() 
     perfMetrics.current.collision = performance.now() - t
 
-    // 9. VFX Lifecycle
+    // 9. VFX Lifecycle & Recycle System
     t = performance.now()
+    // 优先执行对象池回收系统，处理高频实体
+    entityRecycleSystem();
+    
+    // 处理普通实体的生命周期
     for (const entity of world.entities) {
       if (entity.lifetime) {
         entity.lifetime.remaining -= delta
         if (entity.lifetime.remaining <= 0) {
-          world.remove(entity)
+          // 只有非池化实体才真正 remove
+          if (!entity.damageDigit && !entity.money) {
+            world.remove(entity)
+          }
         }
       }
     }

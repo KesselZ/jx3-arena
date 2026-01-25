@@ -162,8 +162,14 @@ export const queries = {
   ).without('dead'),
 }
 
+// --- 极致安全的对象池管理器 ---
+const entityPools = {
+  damageDigit: [] as Entity[],
+  gold: [] as Entity[]
+};
+
 /**
- * 辅助函数：生成伤害飘字
+ * 辅助函数：生成伤害飘字 (安全池化版)
  * 职责：将伤害数值拆分为单个数字实体，实现高性能实例化排版
  */
 export function spawnDamageText(value: number, position: Position) {
@@ -172,10 +178,14 @@ export function spawnDamageText(value: number, position: Position) {
   const now = performance.now() / 1000
 
   for (let i = 0; i < str.length; i++) {
-    world.add({
-      id: `damage-${now}-${Math.random()}`,
+    // 优先从池子取
+    let e = entityPools.damageDigit.pop();
+    
+    // 核心安全策略：所有属性必须显式覆盖，确保没有“上辈子”的残留
+    const digitData: Partial<Entity> = {
+      id: `damage-${now}-${i}-${Math.random()}`, // 必须生成新 ID 以兼容空间哈希
       type: 'effect',
-      position: { ...position },
+      position: { x: position.x, y: position.y, z: position.z },
       velocity: { x: 0, y: 0, z: 0 },
       health: { current: 1, max: 1 },
       lifetime: { remaining: 0.8 },
@@ -184,13 +194,23 @@ export function spawnDamageText(value: number, position: Position) {
         offset: i,
         totalWidth: totalWidth,
         startTime: now
-      }
-    })
+      },
+      dead: false // 显式重置死亡状态
+    };
+
+    if (e) {
+      // 安全复用：彻底覆盖旧数据
+      Object.assign(e, digitData);
+      // 重新加入世界（如果之前被移出了）
+      world.add(e);
+    } else {
+      world.add(digitData as Entity);
+    }
   }
 }
 
 /**
- * 辅助函数：生成金币
+ * 辅助函数：生成金币 (安全池化版)
  * 职责：在指定位置生成可吸附的金币实体
  */
 export function spawnGold(position: Position, amount: number = 1) {
@@ -205,10 +225,12 @@ export function spawnGold(position: Position, amount: number = 1) {
     const force = 1.5 + Math.random() * 2;
     const style = COMBAT_STYLES['gold_coin'];
     
-    world.add({
-      id: `gold-${now}-${Math.random()}`,
+    let e = entityPools.gold.pop();
+    
+    const goldData: Partial<Entity> = {
+      id: `gold-${now}-${i}-${Math.random()}`, // 新 ID
       type: 'bullet', // 借用弹道类型以复用 ProjectileSystem
-      animOffset: Math.random() * 10, // 新增：随机动画相位偏移
+      animOffset: Math.random() * 10,
       position: { 
         x: position.x, 
         y: position.y + 0.5, 
@@ -221,7 +243,7 @@ export function spawnGold(position: Position, amount: number = 1) {
       },
       moveIntent: { x: 0, y: 0, z: 0 },
       health: { current: 1, max: 1 },
-      money: { amount: valuePerCoin },
+      money: { amount: valuePerCoin, collected: false }, // 彻底重置采集状态
       projectile: {
         damage: 0,
         speed: 0, // 初始静止（由 velocity 控制喷射）
@@ -242,7 +264,41 @@ export function spawnGold(position: Position, amount: number = 1) {
         damping: 0.95,
         isGrounded: false,
         mass: 1
+      },
+      dead: false
+    };
+
+    if (e) {
+      Object.assign(e, goldData);
+      world.add(e);
+    } else {
+      world.add(goldData as Entity);
+    }
+  }
+}
+
+/**
+ * 核心回收系统：在主循环中调用，将过期的实体安全送回池子
+ */
+export function entityRecycleSystem() {
+  // 1. 回收伤害飘字
+  for (const e of queries.damageDigits.entities) {
+    if (e.lifetime && e.lifetime.remaining <= 0) {
+      world.remove(e);
+      entityPools.damageDigit.push(e);
+    }
+  }
+  
+  // 2. 回收金币 (包括被采集的和过期的)
+  for (const e of queries.projectiles.entities) {
+    if (e.money) {
+      const isCollected = e.money.collected;
+      const isExpired = e.projectile && e.projectile.lifeTime <= 0;
+      
+      if (isCollected || isExpired) {
+        world.remove(e);
+        entityPools.gold.push(e);
       }
-    });
+    }
   }
 }
