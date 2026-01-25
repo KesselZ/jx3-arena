@@ -8,8 +8,7 @@ import { useRef, useEffect } from 'react'
 /**
  * 3D 性能数据采集器 (Canvas 内部组件)
  */
-const ALPHA = 0.05; // 平滑系数
-const smooth = (old: number, next: number) => (old || 0) * (1 - ALPHA) + (next || 0) * ALPHA;
+const TIME_CONSTANT = 0.8; // 平滑时间常数（秒），数值越大越平滑，建议 0.5 - 1.2
 
 export function PerformanceMonitor() {
   const updateStats = useGameStore((state) => state.updateStats)
@@ -44,7 +43,12 @@ export function PerformanceMonitor() {
     const frameTime = delta * 1000
     const idleTime = Math.max(0, frameTime - logicTime - renderTime)
     
-    // 1. 初始化或更新 EMA 平滑值
+    // --- 核心改进：基于时间的平滑系数 (Frame-rate Independent Smoothing) ---
+    // alpha = 1 - e^(-dt / tau)
+    // 这样无论 FPS 是 60 还是 240，平滑感在时间维度上是恒定的
+    const alpha = 1 - Math.exp(-delta / TIME_CONSTANT);
+    
+    // 1. 初始化或更新平滑值
     if (!smoothed.current) {
       smoothed.current = { 
         frameTime, 
@@ -54,17 +58,19 @@ export function PerformanceMonitor() {
         perfMetrics: { ...metrics } 
       }
     } else {
-      smoothed.current.frameTime = smooth(smoothed.current.frameTime, frameTime)
-      smoothed.current.logicTime = smooth(smoothed.current.logicTime, logicTime)
-      smoothed.current.renderTime = smooth(smoothed.current.renderTime, renderTime)
-      smoothed.current.idleTime = smooth(smoothed.current.idleTime, idleTime)
+      const s = smoothed.current;
+      s.frameTime += (frameTime - s.frameTime) * alpha;
+      s.logicTime += (logicTime - s.logicTime) * alpha;
+      s.renderTime += (renderTime - s.renderTime) * alpha;
+      s.idleTime += (idleTime - s.idleTime) * alpha;
       
       Object.keys(metrics).forEach(key => {
-        smoothed.current.perfMetrics[key] = smooth(smoothed.current.perfMetrics[key], metrics[key])
+        if (s.perfMetrics[key] === undefined) s.perfMetrics[key] = metrics[key];
+        s.perfMetrics[key] += (metrics[key] - s.perfMetrics[key]) * alpha;
       })
     }
 
-    // 2. 每 0.5 秒计算一次真实平均 FPS 并更新 UI
+    // 2. 每 0.5 秒更新一次 UI
     const elapsed = now - lastUpdateTime.current
     if (elapsed >= 500) {
       const actualFps = Math.round((frameCount.current * 1000) / elapsed)
@@ -85,7 +91,7 @@ export function PerformanceMonitor() {
       frameCount.current = 0
     }
     
-    // 3. 重要：手动重置统计，为【本帧】接下来的绘制做准备
+    // 3. 重要：手动重置统计
     gl.info.reset()
   }, 1000) // 优先级最低，在所有逻辑和渲染提交之后
 
