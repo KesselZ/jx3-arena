@@ -14,7 +14,7 @@ export const Assets = {
    * 预加载所有兵种资源
    */
   preloadAll: async () => {
-    console.log('[Assets] 正在预加载所有兵种纹理...');
+    // console.log('[Assets] 正在预加载所有兵种纹理...');
     const promises = Object.keys(UNITS).map(id => Assets.getTexture(id));
     return Promise.all(promises);
   },
@@ -42,10 +42,10 @@ export const Assets = {
       // 1. 加载基础大图 (带 Promise 缓存，防止重复加载)
       if (!baseTextureCache[unit.sheet]) {
         const loader = new THREE.TextureLoader();
-        console.log(`[Assets] 正在从网络加载大图: ${sheet.path}`);
+        // console.log(`[Assets] 正在从网络加载大图: ${sheet.path}`);
         baseTextureCache[unit.sheet] = loader.loadAsync(sheet.path).then(tex => {
           tex.minFilter = tex.magFilter = THREE.NearestFilter;
-          console.log(`[Assets] 大图加载成功: ${sheet.path}`, tex.image.width, 'x', tex.image.height);
+          // console.log(`[Assets] 大图加载成功: ${sheet.path}`, tex.image.width, 'x', tex.image.height);
           return tex;
         });
       }

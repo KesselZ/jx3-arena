@@ -12,7 +12,7 @@ export const ShopView: React.FC = () => {
   // 监听商店显示状态，动态调整 BGM 音量
   useEffect(() => {
     if (showShop) {
-      AudioAssets.setBGMVolumeScale(0.2, 1000); // 进入商店，BGM 降至 20% (更安静)
+      AudioAssets.setBGMVolumeScale(0.4, 1000); // 进入商店，BGM 降至 40% (更清晰一些)
     } else {
       AudioAssets.setBGMVolumeScale(1.0, 800);  // 离开商店，BGM 恢复
     }

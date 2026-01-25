@@ -103,12 +103,14 @@ class AudioManager {
     // 核心修复：如果监听器已存在，确保它被移动到当前的活跃相机上
     if (!this.listener) {
       this.listener = new THREE.AudioListener();
+      console.log(`[AudioDebug] Listener Created`);
     }
     
     if (this.listener.parent) {
       this.listener.parent.remove(this.listener);
     }
     camera.add(this.listener);
+    console.log(`[AudioDebug] Listener attached to camera:`, camera.type);
     
     // 处理浏览器自动播放限制
     const resumeAudio = () => {
@@ -271,6 +273,12 @@ class AudioManager {
     if (config.is3D && options?.position) {
       const camPos = this.listener.getWorldPosition(new THREE.Vector3());
       const distSq = (options.position.x - camPos.x) ** 2 + (options.position.z - camPos.z) ** 2;
+      
+      // 添加调试日志：每 20 次播放打印一次，避免刷屏
+      if (Math.random() < 0.05) {
+        console.log(`[AudioDebug] ID: ${id}, CamPos: ${camPos.x.toFixed(1)},${camPos.z.toFixed(1)}, SoundPos: ${options.position.x.toFixed(1)},${options.position.z.toFixed(1)}, Dist: ${Math.sqrt(distSq).toFixed(1)}`);
+      }
+
       if (distSq > 50 * 50) return; // 50米外直接丢弃
     }
 
@@ -302,9 +310,9 @@ class AudioManager {
     
     // --- 1. 真正的 3D 物理属性设置 ---
     sound.setBuffer(buffer);
-    sound.setRefDistance(5);  // 5米内满音量
-    sound.setMaxDistance(50); // 50米外完全消失
-    sound.setDistanceModel('exponential'); // 指数衰减，更真实
+    sound.setRefDistance(1);  // 1米内满音量
+    sound.setMaxDistance(5);  // 5米外完全消失！极端的近大远小
+    sound.setDistanceModel('exponential'); 
     
     // --- 2. 音效随机化 (高级音响工程师秘籍) ---
     // 随机音调：让声音不再像“复读机”
@@ -313,7 +321,7 @@ class AudioManager {
     
     // 随机音量：微小的力度变化
     const volRandom = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1
-    sound.setVolume((config.volume || 1) * volumeMult * volRandom);
+    sound.setVolume((config.volume || 1) * volumeMult * volRandom * 2.0); // 进一步提升近处音量至 2 倍，增强冲击力
 
     const mesh = new THREE.Object3D();
     mesh.position.set(position.x, position.y || 0, position.z);
@@ -326,11 +334,23 @@ class AudioManager {
       sound.disconnect();
     };
 
-    // --- 3. 修复：将声音添加到世界场景，而非相机 ---
-    let scene: THREE.Object3D = this.listener!;
-    while (scene.parent) scene = scene.parent;
-    scene.add(mesh);
+    // --- 3. 修复：强制获取真正的根场景 (Scene) ---
+    let root: THREE.Object3D = this.listener!;
+    while (root.parent) {
+      root = root.parent;
+    }
     
+    // 如果追溯到的根节点不是 Scene，尝试从 listener 的 parent 链之外寻找
+    // 在 R3F 中，有时候需要通过这种方式确保加到世界
+    root.add(mesh);
+    
+    // 调试日志：检查场景和位置
+    if (Math.random() < 0.05) {
+      const worldPos = new THREE.Vector3();
+      mesh.getWorldPosition(worldPos);
+      console.log(`[AudioDebug] 3D Sound Object - Name: ${id}, RootType: ${root.type}, MeshWorldPos: ${worldPos.x.toFixed(1)},${worldPos.z.toFixed(1)}`);
+    }
+
     sound.play();
   }
 
