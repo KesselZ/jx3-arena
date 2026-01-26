@@ -7,7 +7,7 @@ import { useMemo } from 'react'
 export function Stage() {
   const themeKey = useGameStore((state) => state.theme)
   const setArenaSeats = useGameStore((state) => state.setArenaSeats)
-  const theme = GAME_CONFIG.THEMES[themeKey]
+  const theme = GAME_CONFIG.THEMES[themeKey as keyof typeof GAME_CONFIG.THEMES]
   const { x: bx, z: bz } = GAME_CONFIG.BATTLE.SCREEN_BOUNDS
 
   // 1. 核心技术点：微型噪点贴图 (Noise Texture) + 邻近采样 (Nearest Filter)

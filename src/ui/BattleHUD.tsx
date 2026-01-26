@@ -193,7 +193,7 @@ function StatsPanel() {
  * 核心：血量同步逻辑 (Canvas 内部组件)
  * 职责：在 useFrame 中每帧同步数据到外部 DOM 元素
  */
-export function HealthSync({ player, barRef, textRef }: { player: any, barRef: React.RefObject<HTMLDivElement>, textRef: React.RefObject<HTMLSpanElement> }) {
+export function HealthSync({ player, barRef, textRef }: { player: any, barRef: React.RefObject<HTMLDivElement | null>, textRef: React.RefObject<HTMLSpanElement | null> }) {
   useFrame(() => {
     if (!player || !player.health || !barRef.current || !textRef.current) return
     
@@ -211,7 +211,7 @@ export function HealthSync({ player, barRef, textRef }: { player: any, barRef: R
 /**
  * 战斗界面 UI 覆盖层 (Heads-Up Display)
  */
-export function BattleHUD({ barRef, textRef }: { barRef: React.RefObject<HTMLDivElement>, textRef: React.RefObject<HTMLSpanElement> }) {
+export function BattleHUD({ barRef, textRef }: { barRef: React.RefObject<HTMLDivElement | null>, textRef: React.RefObject<HTMLSpanElement | null> }) {
   const setPhase = useGameStore((state) => state.setPhase)
   const wave = useGameStore((state) => state.wave)
   const waveTimer = useGameStore((state) => state.waveTimer)

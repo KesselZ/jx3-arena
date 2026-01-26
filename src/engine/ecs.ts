@@ -77,7 +77,7 @@ export type Entity = {
   
   // 特效专用组件
   effect?: {
-    type: 'slash' | 'arrow' | 'burst' | 'air_sword'; // 新增 air_sword
+    type: 'slash' | 'arrow' | 'burst' | 'air_sword' | 'gold_coin'; 
     startTime: number;
     duration: number;
     angle?: number; // 平面方向角
@@ -105,6 +105,8 @@ export type Entity = {
   
   facingFlip?: boolean; // 新增：记忆实体的翻转状态
   visualFlip?: number;  // 新增：平滑渲染使用的翻转比例 (-1 到 1)
+  lastVisualUpdate?: number; // 新增：上一次视觉更新的时间戳
+  flipPendingTime?: number;  // 新增：翻转延迟计时的开始时间
   lastMoveX?: number;   // 新增：记录最后一次移动的世界坐标 X
   lastMoveZ?: number;   // 新增：记录最后一次移动的世界坐标 Z
   

@@ -9,6 +9,7 @@ export const GAME_CONFIG = {
   // 战斗相关
   BATTLE: {
     WAVE_DURATION: 30,         // 每波时间 (秒)
+    PLAYER_INITIAL_SPEED: 5,   // 新增：玩家初始移动速度
     SCREEN_BOUNDS: {           // 战斗区域限制
       x: 35,
       z: 35

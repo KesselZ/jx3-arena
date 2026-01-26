@@ -29,6 +29,12 @@ interface AttributeState {
   
   // 计算最终属性的工具函数
   getFinalStat: (attrName: string) => number;
+  getStatDetail: (attrName: string) => {
+    base: number;
+    addValue: number;
+    multValue: number;
+    finalValue: number;
+  };
 }
 
 export const useAttributeStore = create<AttributeState>((set, get) => ({

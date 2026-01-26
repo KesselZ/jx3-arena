@@ -12,6 +12,8 @@ export interface DialogueLine {
   speakerPic?: string; // 新增：对话时显示的立绘图片
 }
 
+export type GameTheme = 'grassland' | 'desert'
+
 interface GameState {
   phase: GamePhase
   theme: GameTheme

@@ -68,7 +68,7 @@ export const movementSystem = (delta: number) => {
         const newMoveX = (moveIntent.x * moveIntent.x + moveIntent.z * moveIntent.z > 0.01) ? moveIntent.x : velocity.x
         const newMoveZ = (moveIntent.x * moveIntent.x + moveIntent.z * moveIntent.z > 0.01) ? moveIntent.z : velocity.z
 
-        if (!isPlayer && entity.lastMoveX !== undefined) {
+        if (!isPlayer && entity.lastMoveX !== undefined && entity.lastMoveZ !== undefined) {
           const dot = newMoveX * entity.lastMoveX + newMoveZ * entity.lastMoveZ
           
           if (dot < -0.1) { // 方向相反

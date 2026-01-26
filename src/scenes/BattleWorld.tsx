@@ -208,7 +208,7 @@ function UnitTypeGroup({ unitId, entities }: { unitId: string, entities: Entity[
         }
 
         // 3. 翻转逻辑
-        if (entity.lastMoveX !== undefined) {
+        if (entity.lastMoveX !== undefined && entity.lastMoveZ !== undefined) {
           const dotSide = entity.lastMoveX * _camRight.x + entity.lastMoveZ * _camRight.z
           
           // --- 核心优化：打破中轴线感 (Per-instance Visual Deadzone) ---
@@ -441,7 +441,7 @@ export function BattleWorld() {
       <Stage />
       <Entities />
       <VFXManager />
-      <EffectComposer disableNormalPass>
+      <EffectComposer>
         <Bloom intensity={1.5} luminanceThreshold={1.0} luminanceSmoothing={0.05} mipmapBlur />
       </EffectComposer>
     </>

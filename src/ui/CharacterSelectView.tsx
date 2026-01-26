@@ -110,111 +110,111 @@ export const CharacterSelectView = () => {
   }
 
   return (
-    <div className="relative w-full h-full bg-jx3-ink overflow-hidden flex flex-col p-8 md:p-16 text-jx3-paper font-pixel">
-      {/* 极简背景装饰：巨大的半透明文字 (回归右下角) */}
-      <div className="absolute right-[-5%] bottom-[-10%] text-[40rem] font-black text-jx3-gold/5 pointer-events-none select-none italic leading-none z-0">
+    <div className="relative w-full h-full bg-jx3-ink overflow-hidden flex flex-col p-4 md:p-8 lg:p-12 text-jx3-paper font-pixel select-none">
+      {/* 极简背景装饰：巨大的半透明文字 (响应式缩放) */}
+      <div className="absolute right-[-2%] bottom-[-5%] text-[min(60vh,40vw)] font-black text-jx3-gold/5 pointer-events-none select-none italic leading-none z-0">
         {activeInfo.name.substring(0, 1)}
       </div>
 
-      {/* 顶部栏：标题与返回 */}
-      <div className="relative z-20 flex justify-between items-end mb-8 border-b-2 border-jx3-gold/20 pb-4">
+      {/* 顶部栏：标题与返回 (缩小高度占比) */}
+      <div className="relative z-20 flex justify-between items-end mb-4 md:mb-6 border-b-2 border-jx3-gold/20 pb-2">
         <div>
-          <h1 className="text-5xl font-black text-jx3-gold tracking-tighter italic">侠士入世</h1>
-          <p className="text-jx3-paper/40 text-[10px] font-bold tracking-widest uppercase mt-1">Select Your Hero To Enter The Arena</p>
+          <h1 className="text-2xl md:text-4xl font-black text-jx3-gold tracking-tighter italic">侠士入世</h1>
+          <p className="text-jx3-paper/40 text-[8px] md:text-[10px] font-bold tracking-widest uppercase mt-0.5 md:mt-1">Select Your Hero To Enter The Arena</p>
         </div>
         <button 
           onClick={handleBack}
-          className="px-6 py-2 bg-jx3-ink border border-jx3-gold/50 text-jx3-gold text-xs font-bold hover:bg-jx3-gold hover:text-jx3-ink transition-all"
+          className="px-4 md:px-6 py-1.5 md:py-2 bg-jx3-ink border border-jx3-gold/50 text-jx3-gold text-[10px] md:text-xs font-bold hover:bg-jx3-gold hover:text-jx3-ink transition-all"
         >
           返回营地
         </button>
       </div>
 
-      {/* 上半部分：详情展示区 (高级聚光灯布局) */}
-      <div className="relative z-10 flex-[1.5] flex items-center justify-center mb-12">
-        <div className="w-full max-w-6xl flex flex-col md:flex-row gap-16 items-center bg-jx3-paper/5 border-y-2 border-jx3-gold/10 backdrop-blur-md p-12 relative overflow-hidden">
+      {/* 上半部分：详情展示区 (核心优化点：使用 flex-1 并限制内容高度) */}
+      <div className="relative z-10 flex-1 min-h-0 flex items-center justify-center mb-6 md:mb-8">
+        <div className="w-full max-w-6xl h-full max-h-[65vh] flex flex-col md:flex-row gap-6 lg:gap-16 items-center bg-jx3-paper/5 border-y-2 border-jx3-gold/10 backdrop-blur-md p-6 md:p-10 lg:p-12 relative overflow-hidden">
           {/* 背景装饰：流动的水墨感 */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,_var(--tw-gradient-stops))] from-jx3-gold/10 via-transparent to-transparent opacity-50"></div>
 
-          {/* 1. 左侧：英雄立绘预览 */}
+          {/* 1. 左侧：英雄立绘预览 (使用 vh 单位确保不溢出) */}
           <div className="flex-shrink-0 relative group">
-            <div className="w-72 h-72 bg-jx3-ink/40 border-2 border-jx3-gold/20 rounded-full flex items-center justify-center relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <div className="w-[25vh] h-[25vh] md:w-[35vh] md:h-[35vh] max-w-[280px] max-h-[280px] bg-jx3-ink/40 border-2 border-jx3-gold/20 rounded-full flex items-center justify-center relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">
               <div className="absolute inset-0 border-4 border-jx3-gold/10 rounded-full animate-spin-slow"></div>
               {activeUnit && (
                 <SpriteIcon 
                   unitId={activeUnit.id} 
-                  size={200} 
-                  className="relative z-10 animate-pixel-float drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" 
+                  size={180} 
+                  className="relative z-10 animate-pixel-float drop-shadow-[0_0_20px_rgba(212,175,55,0.5)] scale-[0.8] md:scale-100" 
                 />
               )}
             </div>
-            {/* 装饰性文字 */}
-            <div className="absolute -bottom-4 -right-4 bg-jx3-vermilion text-white text-[10px] font-black px-2 py-1 rotate-3 shadow-lg">
+            <div className="absolute -bottom-2 -right-2 bg-jx3-vermilion text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 md:py-1 rotate-3 shadow-lg">
               SELECTED
             </div>
           </div>
 
-          {/* 2. 右侧：整合信息面板 */}
-          <div className="flex-1 flex flex-col gap-8 z-10">
+          {/* 2. 右侧：整合信息面板 (使用 clamp 优化字体) */}
+          <div className="flex-1 flex flex-col gap-4 md:gap-6 z-10 min-w-0">
             {/* 标题区 */}
-            <div className="border-b-2 border-jx3-gold/20 pb-4">
-              <div className="flex items-end gap-4 mb-2">
-                <h2 className="text-7xl font-black text-jx3-paper tracking-tighter leading-none">{activeInfo.name}</h2>
-                <span className="text-jx3-gold font-bold italic text-lg mb-1 opacity-60">/ {activeInfo.sect}</span>
+            <div className="border-b-2 border-jx3-gold/20 pb-2 md:pb-4">
+              <div className="flex items-end gap-3 md:gap-4 mb-1 md:mb-2">
+                <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-jx3-paper tracking-tighter leading-none truncate">
+                  {activeInfo.name}
+                </h2>
+                <span className="text-jx3-gold font-bold italic text-sm md:text-lg mb-1 opacity-60 whitespace-nowrap">/ {activeInfo.sect}</span>
               </div>
-              <p className="text-jx3-gold/80 text-xl font-medium italic">"{activeInfo.title} · {activeInfo.description}"</p>
+              <p className="text-jx3-gold/80 text-sm md:text-xl font-medium italic line-clamp-1">"{activeInfo.title} · {activeInfo.description}"</p>
             </div>
 
-            {/* 详情网格 */}
-            <div className="grid grid-cols-2 gap-12">
+            {/* 详情网格 (小屏幕下隐藏部分细节或缩小间距) */}
+            <div className="grid grid-cols-2 gap-6 lg:gap-12 overflow-hidden">
               {/* 特质列 */}
-              <div className="space-y-4">
-                <h3 className="text-jx3-gold text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2">
+              <div className="space-y-2 md:space-y-4">
+                <h3 className="text-jx3-gold text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-jx3-vermilion rotate-45"></div>
-                  门派特质 / Traits
+                  门派特质
                 </h3>
-                <div className="space-y-2 text-sm font-bold">
-                  {activeInfo.traits.map((trait, i) => (
+                <div className="space-y-1 md:space-y-2 text-[10px] md:text-sm font-bold">
+                  {activeInfo.traits.slice(0, 3).map((trait, i) => (
                     <div key={i} className="flex justify-between border-b border-jx3-gold/5 pb-1">
                       <span className="text-jx3-paper/50">{trait.label}</span>
                       <span className={trait.isPositive ? 'text-jx3-gold' : 'text-stone-500'}>{trait.value}</span>
                     </div>
                   ))}
-                  {activeInfo.traits.length === 0 && <div className="text-jx3-paper/20 italic text-xs">暂无特质</div>}
                 </div>
               </div>
 
               {/* 属性列 */}
-              <div className="space-y-4">
-                <h3 className="text-jx3-gold text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2">
+              <div className="space-y-2 md:space-y-4">
+                <h3 className="text-jx3-gold text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-jx3-gold rotate-45"></div>
-                  基础属性 / Stats
+                  基础属性
                 </h3>
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 gap-1 md:gap-3">
                   {[
                     { label: '初始生命', value: activeInfo.displayStats.health },
                     { label: '身法速度', value: activeInfo.displayStats.speed },
-                    { label: '上手难度', value: '★'.repeat(activeInfo.difficulty) + '☆'.repeat(5 - activeInfo.difficulty), isSpecial: true }
+                    { label: '难度', value: '★'.repeat(activeInfo.difficulty), isSpecial: true }
                   ].map((stat, i) => (
                     <div key={i} className="flex justify-between items-center">
-                      <span className="text-[10px] text-jx3-paper/30 font-bold uppercase">{stat.label}</span>
-                      <span className={`text-lg font-black ${stat.isSpecial ? 'text-jx3-vermilion' : 'text-jx3-paper'}`}>{stat.value}</span>
+                      <span className="text-[8px] md:text-[10px] text-jx3-paper/30 font-bold uppercase">{stat.label}</span>
+                      <span className={`text-sm md:text-lg font-black ${stat.isSpecial ? 'text-jx3-vermilion' : 'text-jx3-paper'}`}>{stat.value}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* 操作区：整合进面板 */}
-            <div className="mt-4 flex items-center justify-between bg-jx3-gold/5 p-4 border border-jx3-gold/10">
-              <div className="flex flex-col">
-                <span className="text-[9px] text-jx3-gold/40 font-bold uppercase tracking-widest">Confirmation</span>
-                <span className="text-xs text-jx3-paper/60 font-bold">{lockedId ? `已锁定: ${activeInfo.name}` : '请在下方选择侠士'}</span>
+            {/* 操作区 */}
+            <div className="mt-auto flex items-center justify-between bg-jx3-gold/5 p-3 md:p-4 border border-jx3-gold/10">
+              <div className="hidden sm:flex flex-col">
+                <span className="text-[8px] text-jx3-gold/40 font-bold uppercase tracking-widest">Confirmation</span>
+                <span className="text-[10px] md:text-xs text-jx3-paper/60 font-bold">{lockedId ? `已锁定: ${activeInfo.name}` : '请选择侠士'}</span>
               </div>
               <button 
                 onClick={handleConfirm}
                 className={`
-                  px-12 py-4 font-black text-2xl transition-all shadow-[4px_4px_0_0_rgba(227,66,52,0.4)] relative overflow-hidden
+                  w-full sm:w-auto px-8 md:px-12 py-3 md:py-4 font-black text-xl md:text-2xl transition-all shadow-[4px_4px_0_0_rgba(227,66,52,0.4)] relative overflow-hidden
                   ${lockedId ? 'bg-jx3-gold text-jx3-ink hover:bg-white hover:scale-105 active:scale-95' : 'bg-jx3-paper/10 text-jx3-paper/20 cursor-not-allowed'}
                 `}
                 disabled={!lockedId}
@@ -226,13 +226,13 @@ export const CharacterSelectView = () => {
         </div>
       </div>
       
-      {/* 下半部分：小图标选择区 (占据约 40% 高度) - 采用流式中心布局 */}
+      {/* 下半部分：小图标选择区 (减小高度占比，确保不会挤压主面板) */}
       <div 
-        className="relative z-10 flex-[0.8] min-h-0 flex flex-col"
+        className="relative z-10 h-[20vh] md:h-[25vh] min-h-[120px] flex flex-col"
         onMouseLeave={() => setHoveredId(null)}
       >
-        <div className="flex-1 overflow-y-auto no-scrollbar p-8 mask-fade-edges">
-          <div className="flex flex-wrap justify-center gap-4 w-full mx-auto px-4">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 mask-fade-edges">
+          <div className="flex flex-wrap justify-center gap-3 md:gap-4 w-full mx-auto px-4 pb-8">
             {playableCharacters.map((char) => {
               const isHovered = hoveredId === char.id;
               const isLocked = lockedId === char.id;
@@ -244,7 +244,7 @@ export const CharacterSelectView = () => {
                   onMouseEnter={() => handleCharMouseEnter(char.id)}
                   onClick={() => handleCharClick(char.id)}
                   className={`
-                    w-20 h-20 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out border-2 relative
+                    w-14 h-14 md:w-20 md:h-20 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out border-2 relative
                     ${isLocked 
                       ? 'bg-jx3-gold border-jx3-paper scale-110 z-30 shadow-[0_0_20px_rgba(212,175,55,0.8)] ring-2 ring-jx3-vermilion/50' 
                       : isHovered
@@ -253,32 +253,30 @@ export const CharacterSelectView = () => {
                           ? 'bg-jx3-paper/20 border-jx3-gold/40'
                           : 'bg-jx3-paper/15 border-jx3-gold/10 hover:border-jx3-gold/40'}
                 `}
+                >
+                  <SpriteIcon 
+                    unitId={char.id as any} 
+                    size={isLocked || isHovered ? 48 : 32} 
+                    className={`transition-all duration-200 ${(isLocked || isHovered || isDefault) ? 'opacity-100' : 'opacity-70'} scale-[0.7] md:scale-100`}
+                  />
+                  {isLocked && (
+                    <div className="absolute -top-1 -right-1 w-2 md:w-3 h-2 md:h-3 bg-jx3-vermilion rotate-45 border border-jx3-paper shadow-sm"></div>
+                  )}
+                </div>
+              );
+            })}
+            
+            {/* 填充占位符 (缩小尺寸) */}
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div 
+                key={`placeholder-${i}`}
+                className="w-14 h-14 md:w-20 md:h-20 border-2 border-dashed border-jx3-gold/5 bg-jx3-paper/5 flex items-center justify-center opacity-20"
               >
-                <SpriteIcon 
-                  unitId={char.id as any} 
-                  size={32} 
-                  className={`transition-all duration-200 ${(isLocked || isHovered || isDefault) ? 'opacity-100' : 'opacity-70'}`}
-                />
-                
-                {/* 锁定角标 */}
-                {isLocked && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-jx3-vermilion rotate-45 border border-jx3-paper shadow-sm"></div>
-                )}
+                <div className="text-xl md:text-2xl text-jx3-gold italic font-bold opacity-30">?</div>
               </div>
-            );
-          })}
-          
-          {/* 填充占位符 */}
-          {Array.from({ length: 24 }).map((_, i) => (
-            <div 
-              key={`placeholder-${i}`}
-              className="w-20 h-20 border-2 border-dashed border-jx3-gold/5 bg-jx3-paper/5 flex items-center justify-center opacity-20"
-            >
-              <div className="text-2xl text-jx3-gold italic font-bold opacity-30">?</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
       </div>
     </div>
   )
